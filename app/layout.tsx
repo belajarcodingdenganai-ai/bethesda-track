@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-zinc-50 dark:bg-zinc-950`}>
         <div className="flex h-screen overflow-hidden">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 scroll-smooth">
+          <main className="flex-1 overflow-y-auto px-4 pb-4 pt-20 md:p-8 lg:p-12 scroll-smooth">
             <div className="max-w-[1600px] mx-auto">
               {children}
             </div>

@@ -1,22 +1,69 @@
 "use client";
 
-import { LayoutDashboard, Users, QrCode, Settings, CreditCard, BarChart3, LogOut, ChevronUp, ScanFace, Contact2, MapPin, GraduationCap, Presentation, Banknote, CalendarDays, Bell } from "lucide-react";
+import { LayoutDashboard, QrCode, Settings, CreditCard, BarChart3, ChevronUp, GraduationCap, Presentation, Banknote, CalendarDays, Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <aside className="w-72 border-r border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xl p-6 hidden md:flex flex-col sticky top-0 h-screen z-50">
-      <div className="flex flex-col gap-1 mb-10 px-2">
-        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <div className="w-3 h-3 bg-white rounded-sm rotate-45" />
+    <>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-zinc-200/70 bg-white/90 px-4 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
+        <Link href="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+          <BrandMark />
+          <div className="flex flex-col leading-none">
+            <span className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-50">
+              Therapy<span className="text-indigo-600">OS</span>
+            </span>
+            <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+              Bethesda Special School
+            </span>
+          </div>
+        </Link>
+        <button
+          type="button"
+          aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((open) => !open)}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+        >
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </header>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            aria-label="Tutup menu"
+            className="absolute inset-0 bg-zinc-950/35 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,22rem)] flex-col overflow-y-auto border-r border-zinc-200 bg-white px-5 pb-6 pt-20 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+            <SidebarContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+          </aside>
         </div>
-        <span className="font-black text-2xl tracking-tighter mt-2">Therapy<span className="text-indigo-600">OS</span></span>
-        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Bethesda Special School</span>
+      )}
+
+      <aside className="sticky top-0 z-50 hidden h-screen w-72 flex-col border-r border-zinc-200/50 bg-white/50 p-6 backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-950/50 md:flex">
+        <SidebarContent pathname={pathname} />
+      </aside>
+    </>
+  );
+}
+
+function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  return (
+    <>
+      <div className="mb-10 flex flex-col gap-1 px-2">
+        <BrandMark />
+        <span className="mt-2 text-2xl font-black tracking-tight">Therapy<span className="text-indigo-600">OS</span></span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Bethesda Special School</span>
       </div>
-      
+
       <div className="flex-1 space-y-8">
         <div>
           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 mb-3">Ringkasan Utama</p>
@@ -26,24 +73,28 @@ export function Sidebar() {
               icon={<LayoutDashboard size={18} />} 
               label="Beranda" 
               active={pathname === "/"} 
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/students" 
               icon={<GraduationCap size={18} />} 
               label="Data Siswa" 
               active={pathname === "/students"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/scanner" 
               icon={<QrCode size={18} />} 
               label="Scan QR Kehadiran" 
               active={pathname === "/scanner"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/teachers" 
               icon={<Presentation size={18} />} 
               label="Daftar Guru" 
               active={pathname === "/teachers"}
+              onNavigate={onNavigate}
             />
           </nav>
         </div>
@@ -56,36 +107,42 @@ export function Sidebar() {
               icon={<CreditCard size={18} />} 
               label="Sesi Terapi" 
               active={pathname === "/sessions"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/reports" 
               icon={<BarChart3 size={18} />} 
               label="Laporan & Insight" 
               active={pathname === "/reports"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/revenue" 
               icon={<Banknote size={18} />} 
               label="Keuangan" 
               active={pathname === "/revenue"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/schedules" 
               icon={<CalendarDays size={18} />} 
               label="Jadwal" 
               active={pathname === "/schedules"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/notifications" 
               icon={<Bell size={18} />} 
               label="Notifikasi" 
               active={pathname === "/notifications"}
+              onNavigate={onNavigate}
             />
             <NavItem 
               href="/settings" 
               icon={<Settings size={18} />} 
               label="Pengaturan" 
               active={pathname === "/settings"}
+              onNavigate={onNavigate}
             />
           </nav>
         </div>
@@ -110,14 +167,23 @@ export function Sidebar() {
           <div className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-medium italic">Bethesda Special School v1.0</div>
         </div>
       </div>
-    </aside>
+    </>
   );
 }
 
-function NavItem({ href, icon, label, active = false }: { href: string, icon: React.ReactNode, label: string, active?: boolean }) {
+function BrandMark() {
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-lg shadow-indigo-500/20">
+      <div className="h-3 w-3 rotate-45 rounded-sm bg-white" />
+    </div>
+  );
+}
+
+function NavItem({ href, icon, label, active = false, onNavigate }: { href: string, icon: React.ReactNode, label: string, active?: boolean, onNavigate?: () => void }) {
   return (
     <Link 
       href={href}
+      onClick={onNavigate}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
         active 
           ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]" 
