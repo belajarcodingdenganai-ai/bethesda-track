@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+async function getNextStudentRegistrationNo() {
+  const students = await prisma.student.findMany({
+    where: { registrationNo: { startsWith: 'BETH-' } },
+    select: { registrationNo: true },
+  });
+
+  const highestNumber = students.reduce((highest, student) => {
+    const match = student.registrationNo.match(/^BETH-(\d+)$/);
+    if (!match) return highest;
+    return Math.max(highest, Number(match[1]));
+  }, 0);
+
+  return `BETH-${String(highestNumber + 1).padStart(3, '0')}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -46,10 +61,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const registrationNo = body.registrationNo || await getNextStudentRegistrationNo();
+    const qrCode = body.qrCode || `STU-${registrationNo}`;
 
     const student = await prisma.student.create({
       data: {
-        registrationNo: body.registrationNo,
+        registrationNo,
         name: body.name,
         nickname: body.nickname,
         gender: body.gender,
@@ -57,10 +74,10 @@ export async function POST(request: NextRequest) {
         age: body.age,
         address: body.address,
         parentPhone: body.parentPhone,
-        parentEmail: body.parentEmail,
+        parentEmail: null,
         school: body.school,
         diagnosis: body.diagnosis,
-        qrCode: body.qrCode || body.registrationNo,
+        qrCode,
         status: body.status || 'ACTIVE',
       },
     });

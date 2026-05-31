@@ -44,35 +44,45 @@ async function getOrCreateProgram(tx: any, programName: string) {
   });
 }
 
+async function getNextStudentRegistrationNo(tx: any) {
+  const students = await tx.student.findMany({
+    where: { registrationNo: { startsWith: 'BETH-' } },
+    select: { registrationNo: true },
+  });
+
+  const highestNumber = students.reduce((highest: number, student: { registrationNo: string }) => {
+    const match = student.registrationNo.match(/^BETH-(\d+)$/);
+    if (!match) return highest;
+    return Math.max(highest, Number(match[1]));
+  }, 0);
+
+  return `BETH-${String(highestNumber + 1).padStart(3, '0')}`;
+}
+
+function getOptionalFormString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function createStudent(formData: FormData) {
   try {
-    // Ambil nomor registrasi terakhir untuk menentukan nomor urut berikutnya
-    const lastStudent = await prisma.student.findFirst({
-      where: { registrationNo: { startsWith: 'BETH-' } },
-      orderBy: { registrationNo: 'desc' },
-    });
-
-    let nextNumber = 1;
-    if (lastStudent) {
-      const lastNoMatch = lastStudent.registrationNo.match(/BETH-(\d+)/);
-      if (lastNoMatch) {
-        nextNumber = parseInt(lastNoMatch[1]) + 1;
-      }
-    }
-
-    const registrationNo = `BETH-${nextNumber.toString().padStart(3, '0')}`;
-
     return await prisma.$transaction(async (tx) => {
-      const name = formData.get('name') as string;
-      const nickname = formData.get('nickname') as string;
-      const parentPhone = formData.get('parentPhone') as string;
-      const parentEmail = formData.get('parentEmail') as string;
-      const gender = formData.get('gender') as string;
+      const registrationNo = await getNextStudentRegistrationNo(tx);
+      const name = getOptionalFormString(formData, 'name');
+      const nickname = getOptionalFormString(formData, 'nickname');
+      const parentPhone = getOptionalFormString(formData, 'parentPhone');
+      const gender = getOptionalFormString(formData, 'gender');
       const dateOfBirth = formData.get('dateOfBirth') ? new Date(formData.get('dateOfBirth') as string) : null;
-      const address = formData.get('address') as string;
-      const diagnosis = formData.get('diagnosis') as string;
-      const programsRaw = formData.get('programs') as string; // "ABA, SI"
+      const age = parseInt((formData.get('age') as string) || '', 10);
+      const address = getOptionalFormString(formData, 'address');
+      const diagnosis = getOptionalFormString(formData, 'diagnosis');
+      const programsRaw = getOptionalFormString(formData, 'programs'); // "ABA, SI"
       const frequency = parseInt(formData.get('frequency') as string) || 0;
+
+      if (!name) throw new Error('Nama siswa wajib diisi.');
+      if (!parentPhone) throw new Error('WhatsApp orang tua wajib diisi.');
 
       // 1. Buat Data Siswa dengan format QR Code yang diminta
       const student = await tx.student.create({
@@ -81,8 +91,8 @@ export async function createStudent(formData: FormData) {
           registrationNo,
           nickname,
           parentPhone,
-          parentEmail,
           dateOfBirth,
+          age: Number.isFinite(age) ? age : null,
           gender,
           address,
           diagnosis,
@@ -135,14 +145,16 @@ export async function createStudent(formData: FormData) {
 
 export async function updateStudent(id: string, formData: FormData) {
   try {
-    const name = formData.get('name') as string;
-    const nickname = formData.get('nickname') as string;
-    const parentPhone = formData.get('parentPhone') as string;
-    const parentEmail = formData.get('parentEmail') as string;
-    const gender = formData.get('gender') as string;
+    const name = getOptionalFormString(formData, 'name');
+    const nickname = getOptionalFormString(formData, 'nickname');
+    const parentPhone = getOptionalFormString(formData, 'parentPhone');
+    const gender = getOptionalFormString(formData, 'gender');
     const dateOfBirth = formData.get('dateOfBirth') ? new Date(formData.get('dateOfBirth') as string) : null;
-    const address = formData.get('address') as string;
-    const diagnosis = formData.get('diagnosis') as string;
+    const age = parseInt((formData.get('age') as string) || '', 10);
+    const address = getOptionalFormString(formData, 'address');
+    const diagnosis = getOptionalFormString(formData, 'diagnosis');
+
+    if (!name) throw new Error('Nama siswa wajib diisi.');
 
     const student = await prisma.student.update({
       where: { id },
@@ -150,9 +162,10 @@ export async function updateStudent(id: string, formData: FormData) {
         name,
         nickname,
         parentPhone,
-        parentEmail,
+        parentEmail: null,
         gender,
         dateOfBirth,
+        age: Number.isFinite(age) ? age : null,
         address,
         diagnosis,
       },

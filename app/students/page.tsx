@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Filter, Download, Eye, Edit2, Trash2, Plus, Contact2, Camera, Upload, X, Check, ChevronRight, ChevronLeft, Calendar, User, Heart, MessageSquare, Copy, Mail, Phone, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -19,7 +19,6 @@ interface Student {
   diagnosis?: string;
   status: string;
   parentPhone?: string;
-  parentEmail?: string;
   qrCode: string;
   _count?: {
     attendances: number;
@@ -89,7 +88,7 @@ export default function StudentsPage() {
     });
 
   const portalActiveStudents = filteredStudents.filter(
-    (student) => Boolean(student.parentPhone || student.parentEmail) && student.status === 'ACTIVE'
+    (student) => Boolean(student.parentPhone) && student.status === 'ACTIVE'
   );
   const portalCoverage =
     filteredStudents.length > 0
@@ -208,6 +207,7 @@ export default function StudentsPage() {
     
     if (result?.success) {
       if (modalMode === 'add') {
+        setSelectedStudent(result.data as Student);
         setModalMode('success');
       } else {
         setModalMode(null);
@@ -243,92 +243,153 @@ export default function StudentsPage() {
 
       {/* Modern Student Modal */}
       {modalMode && (
-        <div className="fixed inset-0 bg-zinc-950/20 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full max-w-3xl rounded-[48px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-white/50 dark:border-zinc-800/50 p-12 animate-in zoom-in-95 fade-in duration-500 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-10">
-              <h2 className="text-4xl font-black tracking-tighter leading-none">
-                {modalMode === 'add' ? 'Tambah Siswa' : modalMode === 'edit' ? 'Edit Siswa' : 'Detail Siswa'}
-              </h2>
-              {modalMode === 'view' && (
-                <span className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 rounded-2xl text-xs font-black tracking-widest tabular-nums shadow-xl">
+        <div className="fixed inset-0 bg-zinc-950/30 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full max-w-4xl rounded-[28px] sm:rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.18)] border border-white/50 dark:border-zinc-800/50 animate-in zoom-in-95 fade-in duration-300 max-h-[92vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-start gap-4 border-b border-zinc-100 dark:border-zinc-800 px-5 py-5 sm:px-8">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-none">
+                  {modalMode === 'add' ? 'Tambah Siswa' : modalMode === 'edit' ? 'Edit Siswa' : modalMode === 'success' ? 'Siswa Terdaftar' : 'Detail Siswa'}
+                </h2>
+                <p className="mt-2 text-sm font-medium text-zinc-500">
+                  {modalMode === 'add'
+                    ? 'Nomor registrasi dan barcode dibuat otomatis secara berurutan.'
+                    : modalMode === 'success'
+                      ? 'Data siswa berhasil dibuat dengan identitas otomatis.'
+                      : 'Kelola identitas, kontak orang tua, dan data terapi siswa.'}
+                </p>
+              </div>
+              {(modalMode === 'view' || modalMode === 'success') && (
+                <span className="shrink-0 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-2 rounded-2xl text-[10px] sm:text-xs font-black tracking-widest tabular-nums shadow-xl">
                   {selectedStudent?.registrationNo}
                 </span>
               )}
             </div>
 
-            {modalMode === 'view' && selectedStudent && (
-              <div className="mb-10 p-8 glass-card rounded-[32px] flex flex-col items-center justify-center border-dashed border-2 border-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-500/5">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selectedStudent.qrCode}`} 
-                  alt="QR Code Siswa"
-                  className="w-40 h-40 rounded-3xl shadow-2xl bg-white p-3 mb-4 animate-in zoom-in duration-500"
-                />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">ID QR: {selectedStudent.qrCode}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Nama Lengkap</label>
-                  <input name="name" defaultValue={selectedStudent?.name} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama Lengkap" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Nama Panggilan</label>
-                  <input name="nickname" defaultValue={selectedStudent?.nickname} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama Panggilan" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Gender</label>
-                    <select name="gender" defaultValue={selectedStudent?.gender} required disabled={modalMode === 'view'} className="form-input-modern">
-                      <option value="L">Laki-laki</option>
-                      <option value="P">Perempuan</option>
-                    </select>
+            <div className="overflow-y-auto p-5 sm:p-8">
+              {(modalMode === 'view' || modalMode === 'success') && selectedStudent && (
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5">
+                  <div className="glass-card rounded-[24px] flex flex-col items-center justify-center border-dashed border-2 border-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-500/5 p-5">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${selectedStudent.qrCode}`}
+                      alt="Barcode QR Siswa"
+                      className="w-40 h-40 rounded-2xl shadow-xl bg-white p-3"
+                    />
+                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-600">Barcode QR</p>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Usia</label>
-                    <input name="age" type="number" defaultValue={selectedStudent?.age} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="0" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-5">
+                      <div className="flex items-center gap-2 text-zinc-400">
+                        <Hash size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Registrasi</span>
+                      </div>
+                      <p className="mt-3 font-mono text-xl font-black text-zinc-900 dark:text-zinc-100">{selectedStudent.registrationNo}</p>
+                    </div>
+                    <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-5">
+                      <div className="flex items-center gap-2 text-zinc-400">
+                        <QrCode size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">ID Barcode</span>
+                      </div>
+                      <p className="mt-3 font-mono text-lg font-black text-zinc-900 dark:text-zinc-100 break-all">{selectedStudent.qrCode}</p>
+                    </div>
+                    {modalMode === 'success' && (
+                      <button
+                        type="button"
+                        onClick={() => setModalMode(null)}
+                        className="sm:col-span-2 rounded-3xl bg-indigo-600 px-6 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/25 hover:bg-indigo-700 active:scale-[0.99] transition-all"
+                      >
+                        Selesai
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">WhatsApp Orang Tua</label>
-                  <input name="parentPhone" defaultValue={selectedStudent?.parentPhone} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="628xxx" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Email Orang Tua</label>
-                  <input name="parentEmail" type="email" defaultValue={selectedStudent?.parentEmail} disabled={modalMode === 'view'} className="form-input-modern" placeholder="orangtua@email.com" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Alamat Rumah</label>
-                  <input name="address" defaultValue={selectedStudent?.address} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Alamat" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">Diagnosis</label>
-                  <input name="diagnosis" defaultValue={selectedStudent?.diagnosis} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Diagnosis" />
-                </div>
-              </div>
+              {modalMode !== 'success' && (
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[1fr_0.85fr] gap-6">
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="form-label-modern">Nama Lengkap</label>
+                        <input name="name" defaultValue={selectedStudent?.name} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama lengkap siswa" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="form-label-modern">Nama Panggilan</label>
+                        <input name="nickname" defaultValue={selectedStudent?.nickname} disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama panggilan" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="form-label-modern">Gender</label>
+                        <select name="gender" defaultValue={selectedStudent?.gender || 'L'} required disabled={modalMode === 'view'} className="form-input-modern">
+                          <option value="L">Laki-laki</option>
+                          <option value="P">Perempuan</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="form-label-modern">Usia</label>
+                        <input name="age" type="number" min="0" defaultValue={selectedStudent?.age} disabled={modalMode === 'view'} className="form-input-modern" placeholder="0" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="form-label-modern">WhatsApp Orang Tua</label>
+                        <input name="parentPhone" defaultValue={selectedStudent?.parentPhone} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="628xxx" />
+                      </div>
+                    </div>
 
-              <div className="md:col-span-2 flex gap-4 mt-8">
-                <button type="button" onClick={() => setModalMode(null)} className="flex-1 px-8 py-5 rounded-[24px] font-black text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all uppercase tracking-widest text-[10px]">
-                  {modalMode === 'view' ? 'Tutup' : 'Batal'}
-                </button>
-                {modalMode !== 'view' && (
-                  <button type="submit" className="flex-2 px-12 py-5 rounded-[24px] bg-indigo-600 text-white font-black shadow-2xl shadow-indigo-500/40 hover:bg-indigo-700 active:scale-95 transition-all uppercase tracking-widest text-[10px]">
-                    {modalMode === 'add' ? 'Simpan Siswa' : 'Simpan Perubahan'}
-                  </button>
-                )}
-              </div>
-            </form>
+                    <div className="space-y-1">
+                      <label className="form-label-modern">Alamat Rumah</label>
+                      <input name="address" defaultValue={selectedStudent?.address} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Alamat lengkap" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="form-label-modern">Diagnosis</label>
+                      <input name="diagnosis" defaultValue={selectedStudent?.diagnosis} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Diagnosis atau kebutuhan terapi" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-5 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-2xl bg-indigo-600 p-3 text-white">
+                          <QrCode size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Identitas otomatis</p>
+                          <p className="text-xs font-bold text-zinc-500">Sistem membuat nomor registrasi dan barcode setelah data disimpan.</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-white/80 p-4 dark:bg-zinc-950/40">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">Registrasi</p>
+                          <p className="mt-2 font-mono text-sm font-black text-zinc-700 dark:text-zinc-200">{selectedStudent?.registrationNo || 'BETH-###'}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 p-4 dark:bg-zinc-950/40">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">Barcode</p>
+                          <p className="mt-2 font-mono text-sm font-black text-zinc-700 dark:text-zinc-200">{selectedStudent?.qrCode || 'STU-BETH-###'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+                      <button type="button" onClick={() => setModalMode(null)} className="w-full px-6 py-4 rounded-2xl font-black text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all uppercase tracking-widest text-[10px]">
+                        {modalMode === 'view' ? 'Tutup' : 'Batal'}
+                      </button>
+                      {modalMode !== 'view' && (
+                        <button type="submit" className="w-full px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 active:scale-[0.99] transition-all uppercase tracking-widest text-[10px]">
+                          {modalMode === 'add' ? 'Simpan Siswa' : 'Simpan Perubahan'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       <style jsx global>{`
         .form-input-modern {
-          @apply w-full px-6 py-4 rounded-[20px] bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/50 dark:border-zinc-700/30 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 font-black tracking-tight text-base transition-all duration-300;
+          @apply w-full px-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/40 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/60 font-bold tracking-tight text-base transition-all duration-300;
+        }
+        .form-label-modern {
+          @apply ml-2 text-[10px] font-black uppercase text-zinc-400 tracking-[0.18em];
         }
         .form-input-modern:disabled {
           @apply opacity-60 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/50 grayscale;
@@ -417,14 +478,14 @@ export default function StudentsPage() {
         <div className="p-5 glass-card rounded-[28px] border border-sky-500/10">
           <div className="flex items-center justify-between">
             <div className="p-3 bg-sky-500/10 text-sky-600 rounded-2xl">
-              <Mail size={20} />
+              <QrCode size={20} />
             </div>
             <span className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
-              {filteredStudents.filter((student) => student.parentEmail).length}
+              {filteredStudents.filter((student) => student.qrCode).length}
             </span>
           </div>
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Email Tersedia</p>
-          <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300">Kontak cadangan untuk akses portal keluarga</p>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Barcode Aktif</p>
+          <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300">QR siap dipakai untuk identifikasi dan kehadiran</p>
         </div>
       </div>
 
@@ -475,7 +536,7 @@ export default function StudentsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {student.parentPhone || student.parentEmail ? (
+                      {student.parentPhone ? (
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 text-[10px] font-black uppercase">
                             <ShieldCheck size={12} />
@@ -576,8 +637,8 @@ export default function StudentsPage() {
                 <p className="text-3xl font-black mt-2">{portalActiveStudents.filter((student) => student.parentPhone).length}</p>
               </div>
               <div className="p-4 rounded-3xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/30">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Email Ready</p>
-                <p className="text-3xl font-black mt-2">{portalActiveStudents.filter((student) => student.parentEmail).length}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Barcode Ready</p>
+                <p className="text-3xl font-black mt-2">{portalActiveStudents.filter((student) => student.qrCode).length}</p>
               </div>
             </div>
 
@@ -611,8 +672,8 @@ export default function StudentsPage() {
                           <span className="font-bold">{student.parentPhone || 'WhatsApp belum diisi'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-                          <Mail size={14} className="text-sky-600" />
-                          <span className="font-bold">{student.parentEmail || 'Email belum diisi'}</span>
+                          <QrCode size={14} className="text-sky-600" />
+                          <span className="font-mono font-bold">{student.qrCode}</span>
                         </div>
                       </div>
 
@@ -625,15 +686,6 @@ export default function StudentsPage() {
                           <MessageSquare size={14} />
                           WhatsApp
                         </button>
-                        {student.parentEmail && (
-                          <a
-                            href={`mailto:${student.parentEmail}?subject=${encodeURIComponent('Akses Parent Portal Bethesda')}&body=${encodeURIComponent(`Halo, berikut akses Parent Portal untuk ${student.name}: ${getParentPortalLink(student)}`)}`}
-                            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-sky-600 text-white text-xs font-black uppercase tracking-wider hover:bg-sky-700 transition-all"
-                          >
-                            <Mail size={14} />
-                            Email
-                          </a>
-                        )}
                         <Link
                           href={`/students/${student.id}`}
                           className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all"
@@ -649,7 +701,7 @@ export default function StudentsPage() {
                 <div className="p-12 text-center rounded-3xl bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-200 dark:border-zinc-800">
                   <Contact2 size={36} className="mx-auto text-zinc-300 mb-4" />
                   <p className="font-black text-zinc-900 dark:text-zinc-100">Belum ada portal aktif</p>
-                  <p className="text-sm text-zinc-500 mt-2">Isi WhatsApp atau email orang tua pada data siswa aktif untuk mengaktifkan portal.</p>
+                  <p className="text-sm text-zinc-500 mt-2">Isi WhatsApp orang tua pada data siswa aktif untuk mengaktifkan portal.</p>
                 </div>
               )}
             </div>
