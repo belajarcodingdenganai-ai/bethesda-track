@@ -274,6 +274,28 @@ For issues or questions:
 - Review server actions in `app/actions/attendance.ts`
 - Check API routes in `app/api/`
 
+### DATABASE_URL error
+
+If Prisma shows `Environment variable not found: DATABASE_URL`, make sure:
+- Local development has a `.env` file in the project root, next to `package.json`.
+- The file contains `DATABASE_URL="postgresql://user:password@host:5432/database"`.
+- On Vercel or another host, `DATABASE_URL` is added in the project's Environment Variables, then redeploy the app.
+- Prisma commands are run from the project root: `/Users/deny/Documents/BethesdaTrack`.
+
+### Supabase prepared statement error
+
+If Supabase shows `prepared statement "s..." already exists` during local development, use the Supabase Session Pooler connection string for `DATABASE_URL`. It uses port `5432` and supports prepared statements.
+
+Example:
+```bash
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+```
+
+For serverless deployments that must use the Supabase Transaction Pooler on port `6543`, add `pgbouncer=true`:
+```bash
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true"
+```
+
 ---
 
 **Version**: 0.1.0  
