@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased transition-colors duration-500 min-h-screen text-zinc-900 dark:text-zinc-50;
+    background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%),
+                linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  }
+
+  .dark body {
+    background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 40%),
+                linear-gradient(180deg, #09090b 0%, #111114 100%);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl border border-white/20 dark:border-zinc-800/50 shadow-sm transition-all duration-300;
+  }
+
+  .hover-lift {
+    @apply hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 active:scale-[0.98] transition-all duration-300;
+  }
+}

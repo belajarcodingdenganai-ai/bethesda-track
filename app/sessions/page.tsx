@@ -1,0 +1,1012 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { addTherapyPackage } from "@/app/actions/member";
+import {
+  Search,
+  Plus,
+  Download,
+  FileText,
+  Zap,
+  Users,
+  Activity,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  ChevronDown,
+  X,
+  ExternalLink,
+  Calendar,
+  User,
+} from "lucide-react";
+
+interface Student {
+  id: string;
+  name: string;
+  registrationNo: string;
+  diagnosis?: string;
+  profileImage?: string;
+  program: string;
+  schedule: string;
+  therapist: string;
+  progress: { used: number; total: number };
+  status: string;
+  lastAttended?: string;
+  attendances?: any[];
+}
+
+const KPICard = ({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color: string;
+}) => {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br ${color}`}
+    >
+      <div className="absolute inset-0 opacity-10 bg-white/20 backdrop-blur-sm"></div>
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-white/80 text-sm font-medium">{label}</div>
+          <div className="text-white/60">{icon}</div>
+        </div>
+        <div className="text-3xl font-black text-white tracking-tight">{value}</div>
+      </div>
+      <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/5 rounded-full"></div>
+    </div>
+  );
+};
+
+const AlertBanner = ({ students }: { students: Student[] }) => {
+  const almostDone = students.filter((student) => student.status === "hampir-habis");
+  const withoutPackage = students.filter((student) => student.status === "belum-paket");
+  const neverAttended = students.filter((student) => !student.lastAttended);
+
+  const alerts = [
+    almostDone.length > 0
+      ? `${almostDone.length} siswa memiliki sisa sesi yang hampir habis`
+      : null,
+    withoutPackage.length > 0
+      ? `${withoutPackage.length} siswa aktif belum memiliki paket terapi`
+      : null,
+    neverAttended.length > 0
+      ? `${neverAttended.length} siswa belum memiliki riwayat kehadiran`
+      : null,
+  ].filter(Boolean) as string[];
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-3 mb-8">
+      {alerts.map((alert, idx) => (
+        <div
+          key={idx}
+          className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200/50 dark:border-amber-800/30 backdrop-blur-sm"
+        >
+          <AlertCircle size={18} className="text-amber-600" />
+          <span className="text-sm font-medium text-amber-900 dark:text-amber-200">{alert}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange: (key: string, value: string) => void }) => {
+  const filterGroups = [
+    {
+      label: "Jam",
+      key: "time",
+      options: ["Semua Jam", "08:00-12:00", "13:00-14:00", "13:00-15:00", "14:00-15:00", "14:00-16:00", "15:00-16:00", "15:00-17:00"],
+    },
+    {
+      label: "Program",
+      key: "program",
+      options: ["Semua Program", "ABA", "SI", "Speech", "OT", "Academic"],
+    },
+    {
+      label: "Terapis",
+      key: "therapist",
+      options: ["Semua Terapis", "Maria", "Samuel", "Yohanes"],
+    },
+    {
+      label: "Status",
+      key: "status",
+      options: ["Semua Status", "Aktif", "Hampir Habis", "Selesai", "Belum Paket"],
+    },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-3 mb-6">
+      {filterGroups.map((group) => (
+        <select
+          key={group.key}
+          value={filters[group.key]}
+          onChange={(e) => onFilterChange(group.key, e.target.value)}
+          className="px-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {group.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {group.label}: {opt}
+            </option>
+          ))}
+        </select>
+      ))}
+    </div>
+  );
+};
+
+const QuickActions = ({
+  onAddSession,
+  onExportExcel,
+  onExportPDF,
+}: {
+  onAddSession: () => void;
+  onExportExcel: () => void;
+  onExportPDF: () => void;
+}) => {
+  return (
+    <div className="flex flex-wrap gap-3 mb-6">
+      <button
+        onClick={onAddSession}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm hover:shadow-md"
+      >
+        <Plus size={18} /> Tambah Sesi
+      </button>
+      <button
+        onClick={() => {
+          window.location.href = "/scanner";
+        }}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <Zap size={18} /> Scan QR
+      </button>
+      <button
+        onClick={onExportExcel}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <Download size={18} /> Export Excel
+      </button>
+      <button
+        onClick={onExportPDF}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <FileText size={18} /> Export PDF
+      </button>
+    </div>
+  );
+};
+
+const filterStudents = (students: Student[], searchQuery: string, filters: Record<string, string>) => {
+  const normalizedSearch = searchQuery.toLowerCase();
+
+  return students.filter((student) => {
+    const matchesSearch =
+      student.name.toLowerCase().includes(normalizedSearch) ||
+      student.registrationNo.toLowerCase().includes(normalizedSearch);
+    const matchesProgram =
+      filters.program === "Semua Program" ||
+      student.program.toLowerCase() === filters.program.toLowerCase();
+    const matchesTherapist =
+      filters.therapist === "Semua Terapis" || student.therapist === filters.therapist;
+    const matchesStatus =
+      filters.status === "Semua Status" ||
+      (filters.status === "Aktif" && student.status === "aktif") ||
+      (filters.status === "Hampir Habis" && student.status === "hampir-habis") ||
+      (filters.status === "Selesai" && student.status === "selesai") ||
+      (filters.status === "Belum Paket" && student.status === "belum-paket");
+    const matchesTime =
+      filters.time === "Semua Jam" ||
+      student.schedule === filters.time ||
+      (filters.time.includes("-") && student.schedule !== "Belum ada jadwal" && isTimeInRange(student.schedule, filters.time));
+
+    return matchesSearch && matchesProgram && matchesTherapist && matchesStatus && matchesTime;
+  });
+};
+
+const isTimeInRange = (time: string, range: string) => {
+  const [start, end] = range.split("-");
+  if (!start || !end) return false;
+  return time >= start && time <= end;
+};
+
+const downloadBlob = (content: BlobPart, filename: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const toCsv = (rows: Array<Record<string, string | number>>) => {
+  if (rows.length === 0) return "";
+
+  const headers = Object.keys(rows[0]);
+  const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+
+  return [
+    headers.map(escapeCell).join(","),
+    ...rows.map((row) => headers.map((header) => escapeCell(row[header])).join(",")),
+  ].join("\n");
+};
+
+const exportHistoryToCsv = (student: Student, history: any[]) => {
+  if (history.length === 0) {
+    toast.error("Belum ada riwayat untuk diekspor");
+    return;
+  }
+
+  const csv = toCsv(
+    history.map((session) => ({
+      Tanggal: new Date(session.checkIn).toLocaleDateString("id-ID"),
+      Masuk: new Date(session.checkIn).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      Pulang: session.checkOut
+        ? new Date(session.checkOut).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+        : "-",
+      Program: session.program?.name || "-",
+      Terapis: session.teacher?.user?.name || "-",
+      Status: session.status || "-",
+    }))
+  );
+
+  downloadBlob(csv, `riwayat-${student.registrationNo}.csv`, "text/csv;charset=utf-8");
+  toast.success("Riwayat berhasil diekspor");
+};
+
+const SessionsTable = ({
+  students,
+  searchQuery,
+  filters,
+}: {
+  students: Student[];
+  searchQuery: string;
+  filters: Record<string, string>;
+}) => {
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [sessionHistoryOpen, setSessionHistoryOpen] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const filteredStudents = filterStudents(students, searchQuery, filters);
+
+  const openSessionHistory = async (student: Student) => {
+    setSelectedStudent(student);
+    setSessionHistoryOpen(true);
+    setLoadingHistory(true);
+    
+    try {
+      const response = await fetch(`/api/sessions/${student.id}`);
+      const data = await response.json();
+      setSessionHistory(data);
+    } catch (error) {
+      console.error("Error fetching session history:", error);
+      setSessionHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "aktif":
+        return { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", badge: "🟢 Aktif" };
+      case "hampir-habis":
+        return { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", badge: "🟡 Hampir Habis" };
+      case "selesai":
+        return { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-700 dark:text-red-300", badge: "🔴 Selesai" };
+      case "belum-paket":
+        return { bg: "bg-zinc-50 dark:bg-zinc-900/30", text: "text-zinc-700 dark:text-zinc-300", badge: "Belum Paket" };
+      default:
+        return { bg: "bg-zinc-50 dark:bg-zinc-900/30", text: "text-zinc-700 dark:text-zinc-300", badge: "Status" };
+    }
+  };
+
+  const getProgressPercentage = (used: number, total: number) => total > 0 ? (used / total) * 100 : 0;
+
+  return (
+    <>
+      <div className="overflow-x-auto rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm shadow-sm">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-zinc-200/50 dark:border-zinc-800/50">
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Nama</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Program</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Jadwal</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Terapis</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Progress</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Sisa Sesi</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Status</th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredStudents.map((student) => {
+              const statusStyle = getStatusBadge(student.status);
+              const progressPct = getProgressPercentage(student.progress.used, student.progress.total);
+              const sessionsLeft = student.progress.total - student.progress.used;
+
+              return (
+                <tr
+                  key={student.id}
+                  className="border-b border-zinc-200/50 dark:border-zinc-800/50 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group"
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={student.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
+                        alt={student.name}
+                        className="w-10 h-10 rounded-xl object-cover ring-2 ring-zinc-200 dark:ring-zinc-800"
+                      />
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{student.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-3 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-sm font-medium">
+                      {student.program}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      <Clock size={14} />
+                      {student.schedule}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-zinc-900 dark:text-zinc-100">{student.therapist}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-300"
+                          style={{ width: `${progressPct}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 w-8">{progressPct.toFixed(0)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{sessionsLeft} sesi</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
+                      {statusStyle.badge}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 space-x-2 flex">
+                    <button
+                      onClick={() => setSelectedStudent(student)}
+                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium text-sm hover:underline transition-colors"
+                    >
+                      Detail
+                    </button>
+                    <button
+                      onClick={() => openSessionHistory(student)}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm hover:underline transition-colors flex items-center gap-1"
+                    >
+                      <ExternalLink size={14} /> Riwayat
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedStudent && !sessionHistoryOpen && (
+        <DetailDrawer student={selectedStudent} onClose={() => setSelectedStudent(null)} />
+      )}
+
+      {sessionHistoryOpen && selectedStudent && (
+        <SessionHistoryWindow
+          student={selectedStudent}
+          history={sessionHistory}
+          loading={loadingHistory}
+          onClose={() => {
+            setSessionHistoryOpen(false);
+            setSessionHistory([]);
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+const SessionHistoryWindow = ({
+  student,
+  history,
+  loading,
+  onClose,
+}: {
+  student: Student;
+  history: any[];
+  loading: boolean;
+  onClose: () => void;
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 flex items-center justify-between p-6 border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <img
+              src={student.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
+              alt={student.name}
+              className="w-12 h-12 rounded-xl object-cover ring-2 ring-indigo-200 dark:ring-indigo-800"
+            />
+            <div>
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{student.name}</h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{student.registrationNo} • {student.program}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 mb-4">
+                  <Activity className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                </div>
+                <p className="text-zinc-600 dark:text-zinc-400">Memuat riwayat sesi...</p>
+              </div>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Calendar className="w-12 h-12 text-zinc-300 dark:text-zinc-700 mb-4" />
+              <p className="text-zinc-600 dark:text-zinc-400">Belum ada riwayat sesi</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {history.map((session, idx) => {
+                const date = new Date(session.checkIn);
+                const checkOutTime = session.checkOut ? new Date(session.checkOut) : null;
+                const duration = session.duration || 0;
+
+                const statusColor = {
+                  PRESENT: "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300",
+                  ABSENT: "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300",
+                  LATE: "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300",
+                  EXCUSED: "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300",
+                };
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                              {date.toLocaleDateString("id-ID", {
+                                weekday: "long",
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })}
+                            </span>
+                            <span
+                              className={`text-xs font-bold px-3 py-1 rounded-lg ${
+                                statusColor[session.status as keyof typeof statusColor] || statusColor.PRESENT
+                              }`}
+                            >
+                              {session.status === "PRESENT"
+                                ? "✓ Hadir"
+                                : session.status === "ABSENT"
+                                  ? "✗ Tidak Hadir"
+                                  : session.status === "LATE"
+                                    ? "⏰ Terlambat"
+                                    : "📋 Izin"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-zinc-500 dark:text-zinc-400">Waktu Mulai</span>
+                              <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                {date.toLocaleTimeString("id-ID", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            {checkOutTime && (
+                              <div>
+                                <span className="text-zinc-500 dark:text-zinc-400">Waktu Selesai</span>
+                                <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                  {checkOutTime.toLocaleTimeString("id-ID", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-zinc-500 dark:text-zinc-400">Durasi</span>
+                              <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                {duration > 0 ? `${Math.round(duration)} menit` : "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div className="p-2 rounded-lg bg-white dark:bg-black/20">
+                        <span className="text-zinc-500 dark:text-zinc-400 text-xs">Program</span>
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{session.program?.name}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white dark:bg-black/20">
+                        <span className="text-zinc-500 dark:text-zinc-400 text-xs">Terapis</span>
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{session.teacher?.user?.name}</p>
+                      </div>
+                      {session.room && (
+                        <div className="p-2 rounded-lg bg-white dark:bg-black/20">
+                          <span className="text-zinc-500 dark:text-zinc-400 text-xs">Ruangan</span>
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100">{session.room}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 p-4 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            Tutup
+          </button>
+          <button
+            onClick={() => exportHistoryToCsv(student, history)}
+            className="px-6 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+          >
+            <Download size={16} /> Export
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DetailDrawer = ({ student, onClose }: { student: Student; onClose: () => void }) => {
+  const historyData = [
+    { date: "03 Juni", status: "Hadir" },
+    { date: "05 Juni", status: "Hadir" },
+    { date: "10 Juni", status: "Hadir" },
+    { date: "12 Juni", status: "Tidak Hadir" },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center md:justify-end">
+      <div className="w-full md:w-96 bg-white dark:bg-zinc-950 rounded-t-3xl md:rounded-3xl shadow-2xl max-h-screen overflow-y-auto">
+        <div className="sticky top-0 flex items-center justify-between p-6 border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm rounded-t-3xl">
+          <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Detail Siswa</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col items-center">
+            <img
+              src={student.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
+              alt={student.name}
+              className="w-20 h-20 rounded-2xl mb-4 ring-4 ring-indigo-100 dark:ring-indigo-900"
+            />
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{student.name}</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{student.program}</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">Program</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{student.program}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">Terapis</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{student.therapist}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">Jadwal</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{student.schedule}</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide">Progress</h4>
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border border-indigo-200/50 dark:border-indigo-800/30">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-indigo-900 dark:text-indigo-300">
+                  {student.progress.used} / {student.progress.total} Sesi
+                </span>
+              </div>
+              <div className="h-3 bg-white/50 dark:bg-black/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-300"
+                  style={{ width: `${(student.progress.used / student.progress.total) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide">Riwayat Kehadiran</h4>
+            <div className="space-y-2">
+              {historyData.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50"
+                >
+                  <span className="text-sm text-zinc-600 dark:text-zinc-400">{item.date}</span>
+                  <span
+                    className={`text-xs font-bold px-3 py-1 rounded-lg ${
+                      item.status === "Hadir"
+                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button className="w-full px-4 py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
+            Edit Data Siswa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function SessionsPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddingSession, setIsAddingSession] = useState(false);
+  const [frequency, setFrequency] = useState(0);
+  const [isSubmittingSession, setIsSubmittingSession] = useState(false);
+  const [filters, setFilters] = useState({
+    time: "Semua Jam",
+    program: "Semua Program",
+    therapist: "Semua Terapis",
+    status: "Semua Status",
+  });
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/sessions");
+      const data = await response.json();
+      setStudents(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+      toast.error("Gagal memuat data sesi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const visibleStudents = filterStudents(students, searchQuery, filters);
+
+  const exportToExcel = async () => {
+    if (visibleStudents.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+
+    const XLSX = await import("xlsx");
+    const rows = visibleStudents.map((student) => ({
+      "Nama Siswa": student.name,
+      "No Registrasi": student.registrationNo,
+      Program: student.program,
+      Jadwal: student.schedule,
+      Terapis: student.therapist,
+      "Sesi Terpakai": student.progress.used,
+      "Total Sesi": student.progress.total,
+      "Sisa Sesi": student.progress.total - student.progress.used,
+      Status: student.status,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sesi Terapi");
+    XLSX.writeFile(wb, "sesi-terapi.xlsx");
+    toast.success("Excel berhasil diunduh");
+  };
+
+  const exportToPDF = async () => {
+    if (visibleStudents.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+
+    const { jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+
+    const doc = new jsPDF();
+    doc.text("Laporan Sesi Terapi", 14, 16);
+    autoTable(doc, {
+      startY: 24,
+      head: [["Nama", "Program", "Terapis", "Progress", "Sisa", "Status"]],
+      body: visibleStudents.map((student) => [
+        student.name,
+        student.program,
+        student.therapist,
+        `${student.progress.used}/${student.progress.total}`,
+        student.progress.total - student.progress.used,
+        student.status,
+      ]),
+    });
+    doc.save("sesi-terapi.pdf");
+    toast.success("PDF berhasil diunduh");
+  };
+
+  const handleAddSession = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (frequency <= 0) {
+      toast.error("Pilih frekuensi terapi terlebih dahulu");
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const studentId = formData.get("studentId") as string;
+
+    if (!studentId) {
+      toast.error("Pilih siswa terlebih dahulu");
+      return;
+    }
+
+    try {
+      setIsSubmittingSession(true);
+      const result = await addTherapyPackage(studentId, formData);
+
+      if (result.success) {
+        toast.success("Paket sesi berhasil diaktifkan");
+        setIsAddingSession(false);
+        setFrequency(0);
+        await fetchStudents();
+      } else {
+        toast.error(`Gagal: ${"error" in result ? result.error : "Terjadi kesalahan"}`);
+      }
+    } finally {
+      setIsSubmittingSession(false);
+    }
+  };
+
+  // Calculate metrics
+  const totalStudents = students.length;
+  const totalSessions = students.reduce((sum, s) => sum + s.progress.total, 0);
+  const almostDone = students.filter((s) => s.status === "hampir-habis").length;
+  const withoutPackage = students.filter((s) => s.status === "belum-paket").length;
+
+  return (
+    <div className="min-h-screen">
+      <div className="mb-8">
+        <h1 className="text-4xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight mb-2">Sesi Terapi</h1>
+        <p className="text-lg text-zinc-600 dark:text-zinc-400">
+          Pantau seluruh penggunaan sesi terapi siswa secara realtime.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 mb-4">
+              <Activity className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin" />
+            </div>
+            <p className="text-zinc-600 dark:text-zinc-400">Memuat data siswa...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <KPICard
+              label="Total Siswa"
+              value={totalStudents.toString()}
+              icon={<Users className="w-5 h-5" />}
+              color="from-blue-500 to-blue-600"
+            />
+            <KPICard
+              label="Total Sesi"
+              value={totalSessions.toLocaleString("id-ID")}
+              icon={<Activity className="w-5 h-5" />}
+              color="from-indigo-500 to-indigo-600"
+            />
+            <KPICard
+              label="Hampir Habis"
+              value={almostDone.toString()}
+              icon={<AlertCircle className="w-5 h-5" />}
+              color="from-amber-500 to-amber-600"
+            />
+            <KPICard
+              label="Belum Ada Paket"
+              value={withoutPackage.toString()}
+              icon={<CheckCircle className="w-5 h-5" />}
+              color="from-emerald-500 to-emerald-600"
+            />
+          </div>
+
+          <AlertBanner students={students} />
+
+          <div className="mb-6 flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400" size={20} />
+              <input
+                type="text"
+                placeholder="Cari nama siswa..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+              />
+            </div>
+          </div>
+
+          <QuickActions
+            onAddSession={() => setIsAddingSession(true)}
+            onExportExcel={exportToExcel}
+            onExportPDF={exportToPDF}
+          />
+          <FilterPanel filters={filters} onFilterChange={handleFilterChange} />
+          <SessionsTable students={students} searchQuery={searchQuery} filters={filters} />
+
+          <div className="mt-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            Menampilkan {students.length} siswa • Diperbarui realtime
+          </div>
+        </>
+      )}
+
+      {isAddingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 flex flex-col">
+            <div className="p-6 border-b border-zinc-200/50 dark:border-zinc-800/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">Tambah Sesi Terapi</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                  Aktifkan paket terapi baru untuk siswa.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAddingSession(false);
+                  setFrequency(0);
+                }}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSession} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Siswa</label>
+                <select
+                  name="studentId"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Pilih siswa...</option>
+                  {students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name} ({student.registrationNo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Program</label>
+                  <select
+                    name="programs"
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Pilih program...</option>
+                    <option value="ABA">ABA</option>
+                    <option value="SI">SI</option>
+                    <option value="SPEECH">Speech Therapy</option>
+                    <option value="OT">Occupational Therapy</option>
+                    <option value="ACADEMIC">Academic Support</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Tanggal Berakhir</label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Frekuensi Terapi</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFrequency(value)}
+                      className={`py-3 rounded-xl text-sm font-black transition-colors ${
+                        frequency === value
+                          ? "bg-indigo-600 text-white"
+                          : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {value}x
+                    </button>
+                  ))}
+                </div>
+                <input type="hidden" name="frequency" value={frequency} />
+                {frequency > 0 && (
+                  <p className="text-sm text-zinc-500">
+                    Otomatis membuat {frequency * 4} sesi per bulan.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingSession(false);
+                    setFrequency(0);
+                  }}
+                  className="px-5 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingSession}
+                  className="px-5 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                >
+                  {isSubmittingSession ? "Menyimpan..." : "Aktifkan Paket"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
