@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       total,
       limit,
       offset,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
+      }
     });
   } catch (error) {
     console.error('Error fetching students:', error);

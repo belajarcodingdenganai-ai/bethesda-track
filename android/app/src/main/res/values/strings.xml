@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bethesda Track</string>
+    <string name="title_activity_main">Bethesda Track</string>
+    <string name="package_name">com.bethesda.track</string>
+    <string name="custom_url_scheme">com.bethesda.track</string>
+</resources>

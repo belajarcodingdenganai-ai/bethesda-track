@@ -1,18 +1,17 @@
 "use client";
 
-import { LayoutDashboard, QrCode, Settings, CreditCard, ChevronUp, GraduationCap, Presentation, Menu, X } from "lucide-react";
+import { LayoutDashboard, QrCode, Settings, CreditCard, ChevronUp, GraduationCap, Presentation, Menu, X, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-zinc-200/70 bg-white/90 px-4 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center px-4 border-b border-zinc-200/70 bg-white/90 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
+        <Link href="/" className="flex items-center gap-3">
           <BrandMark />
           <div className="flex flex-col leading-none">
             <span className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-50">
@@ -23,30 +22,7 @@ export function Sidebar() {
             </span>
           </div>
         </Link>
-        <button
-          type="button"
-          aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((open) => !open)}
-          className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 shadow-sm transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-        >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
       </header>
-
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <button
-            type="button"
-            aria-label="Tutup menu"
-            className="absolute inset-0 bg-zinc-950/35 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,22rem)] flex-col overflow-y-auto border-r border-zinc-200 bg-white px-5 pb-6 pt-20 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
-            <SidebarContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-          </aside>
-        </div>
-      )}
 
       <aside className="sticky top-0 z-50 hidden h-screen w-72 flex-col border-r border-zinc-200/50 bg-white/50 p-6 backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-950/50 md:flex">
         <SidebarContent pathname={pathname} />
@@ -114,6 +90,13 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
               icon={<CreditCard size={18} />} 
               label="Sesi Terapi" 
               active={pathname === "/sessions"}
+              onNavigate={onNavigate}
+            />
+            <NavItem
+              href="/reports"
+              icon={<BarChart3 size={18} />}
+              label="Laporan & Analytics"
+              active={pathname === "/reports"}
               onNavigate={onNavigate}
             />
             <NavItem 

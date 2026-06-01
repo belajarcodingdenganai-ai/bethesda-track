@@ -295,6 +295,38 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
   }
 }
 
+export async function getPrograms() {
+  try {
+    const programs = await prisma.program.findMany({
+      include: {
+        _count: {
+          select: {
+            studentPrograms: true,
+            packages: true,
+            attendances: true
+          }
+        }
+      },
+      orderBy: { name: 'asc' },
+    });
+    return { success: true, data: programs };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteProgram(id: string) {
+  try {
+    await prisma.program.delete({
+      where: { id },
+    });
+    revalidatePath('/settings');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
+  }
+}
+
 export async function createTeacher(formData: FormData) {
   try {
     const name = getOptionalFormString(formData, 'name');

@@ -464,6 +464,77 @@ export async function getDashboardStats() {
   }
 }
 
+export async function getReportData() {
+  try {
+    const now = new Date();
+    // Get last 7 days of attendance
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        checkIn: {
+          gte: sevenDaysAgo
+        }
+      },
+      select: {
+        checkIn: true,
+        program: { select: { name: true } }
+      }
+    });
+
+    // Group by day
+    const statsByDay = attendances.reduce((acc: any, curr) => {
+      const date = curr.checkIn.toISOString().split('T')[0];
+      if (!acc[date]) acc[date] = 0;
+      acc[date]++;
+      return acc;
+    }, {});
+
+    // Group by program
+    const statsByProgram = attendances.reduce((acc: any, curr) => {
+      const name = curr.program.name;
+      if (!acc[name]) acc[name] = 0;
+      acc[name]++;
+      return acc;
+    }, {});
+
+    return {
+      success: true,
+      data: {
+        dailyAttendance: Object.entries(statsByDay).map(([date, count]) => ({ date, count })),
+        programDistribution: Object.entries(statsByProgram).map(([name, count]) => ({ name, count }))
+      }
+    };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function getNotifications() {
+  try {
+    const notifications = await prisma.notification.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    return { success: true, data: notifications };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function markNotificationRead(id: string) {
+  try {
+    await prisma.notification.update({
+      where: { id },
+      data: { isRead: true, readAt: new Date() },
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
 export async function getAttendanceHistory(packageId: string) {
   try {
     const attendances = await prisma.attendance.findMany({

@@ -9,9 +9,15 @@
     "lint": "next lint",
     "db:deploy": "prisma db push --schema ./prisma/schema.prisma",
     "postinstall": "prisma generate --schema ./prisma/schema.prisma",
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "npx tsx prisma/seed.ts",
+    "build:android": "next build && npx cap sync",
+    "android:dev": "npx cap sync android && npx cap open android",
+    "android:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@prisma/client": "5.22.0",
     "autoprefixer": "^10.5.0",
     "clsx": "^2.1.1",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
@@ -22,16 +22,17 @@ import { toast } from 'sonner';
 
 export default function StudentDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const studentId = params.id as string;
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isParentPortal, setIsParentPortal] = useState(false);
 
   useEffect(() => {
-    const parentPortal = new URLSearchParams(window.location.search).get('portal') === 'parent';
+    const parentPortal = searchParams.get('portal') === 'parent';
     setIsParentPortal(parentPortal);
     fetchStudent(parentPortal);
-  }, [studentId]);
+  }, [studentId, searchParams]);
 
   const fetchStudent = async (parentPortal = false) => {
     try {

@@ -59,6 +59,13 @@ export default function StudentsPage() {
 
   useEffect(() => {
     fetchStudents();
+
+    // Auto-sync polling every 30 seconds for real-time consistency with desktop
+    const interval = setInterval(() => {
+      fetchStudents();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchStudents = async () => {
@@ -78,9 +85,11 @@ export default function StudentsPage() {
 
   const filteredStudents = (Array.isArray(students) ? students : [])
     .filter((student) => {
+      const name = student.name || '';
+      const regNo = student.registrationNo || '';
       const matchesSearch =
-        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.registrationNo.toLowerCase().includes(searchQuery.toLowerCase());
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        regNo.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'ALL' || student.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
@@ -200,8 +209,16 @@ export default function StudentsPage() {
 
   const handleOpenModal = (mode: 'add' | 'edit' | 'view', student: Student | null = null) => {
     setSelectedStudent(student);
-    setModalMode(mode);
     setStep(1);
+    setDob('');
+    setAgeDisplay('');
+    setProfilePreview(null);
+    setSelectedPrograms([]);
+    setFrequency(0);
+    setSessions(0);
+    setSearchDiag('');
+    setSelectedDiag([]);
+
     setFormDraft({
       name: student?.name || '',
       nickname: student?.nickname || '',
@@ -211,9 +228,10 @@ export default function StudentsPage() {
       address: student?.address || '',
       diagnosis: student?.diagnosis || '',
     });
+
     if (student?.dateOfBirth) setDob(format(new Date(student.dateOfBirth), 'yyyy-MM-dd'));
     if (student?.diagnosis) setSelectedDiag(student.diagnosis.split(', '));
-    setProfilePreview(null);
+    setModalMode(mode);
   };
 
   const handleFormDraftChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -454,6 +472,13 @@ export default function StudentsPage() {
           >
             <Download size={16} />
             Ekspor
+          </button>
+          <button
+            onClick={fetchStudents}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm font-medium active:scale-95 transition-all"
+          >
+            <Activity size={16} />
+            Sync Data
           </button>
           <button
             onClick={() => setIsParentPortalOpen(true)}

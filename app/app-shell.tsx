@@ -2,6 +2,8 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { Sidebar } from "./sidebar";
+import { BottomNav } from "./bottom-nav";
+import NotificationCenter from "@/components/notification-center";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,9 +18,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto px-4 pb-4 pt-20 md:p-8 lg:p-12 scroll-smooth">
-        <div className="max-w-[1600px] mx-auto">{children}</div>
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Top Header for Desktop */}
+        <header className="hidden md:flex h-20 items-center justify-end px-12 shrink-0">
+          <NotificationCenter />
+        </header>
+
+        <main className="flex-1 overflow-y-auto px-4 pb-24 pt-20 md:pt-0 md:p-8 lg:p-12 scroll-smooth">
+          <div className="max-w-[1600px] mx-auto">{children}</div>
+        </main>
+
+        <BottomNav />
+      </div>
     </div>
   );
 }

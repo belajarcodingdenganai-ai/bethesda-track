@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Download, Plus, CreditCard, AlertCircle, CheckCircle2, History, User, BookOpen, QrCode, FileText, ChevronRight, X, Calendar, Clock, MoreHorizontal, FileSpreadsheet, File as FilePdf, Users, GraduationCap, Presentation, Activity, TrendingUp } from 'lucide-react';
+import { Search, Filter, Download, Plus, CreditCard, AlertCircle, CheckCircle2, History, User, BookOpen, QrCode, FileText, ChevronRight, X, Calendar, Clock, MoreHorizontal, FileSpreadsheet, File as FilePdf, Users, GraduationCap, Presentation, Activity, TrendingUp, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTherapyPackages, addTherapyPackage } from '@/app/actions/member';
 import { getAttendanceHistory, getDashboardStats } from '@/app/actions/attendance';
@@ -43,6 +43,14 @@ export default function DashboardPage() {
     fetchDashboard();
     fetchPackages();
     fetchStudents();
+
+    // Auto-sync polling every 20 seconds for real-time updates from desktop
+    const interval = setInterval(() => {
+      fetchDashboard();
+      fetchPackages();
+    }, 20000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboard = async () => {
@@ -170,39 +178,63 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative">
+    <div className="space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-5xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600 dark:from-white dark:to-zinc-400">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600 dark:from-white dark:to-zinc-400">
             Therapy<span className="text-indigo-600">OS</span>
           </h1>
-          <p className="text-zinc-500 text-lg font-medium italic mt-2">Enterprise Session Tracking & Management.</p>
+          <p className="text-zinc-500 text-sm md:text-lg font-medium italic mt-1 md:mt-2">Enterprise Session Tracking & Management.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-3xl border border-zinc-200 dark:border-zinc-800">
-            <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest">
-              <FileSpreadsheet size={14} className="text-emerald-600" /> Excel
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl md:rounded-3xl border border-zinc-200 dark:border-zinc-800">
+            <button onClick={exportToExcel} className="flex items-center gap-1.5 px-3 md:px-4 py-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl md:rounded-2xl transition-all font-bold text-[9px] md:text-[10px] uppercase tracking-widest">
+              <FileSpreadsheet size={12} className="text-emerald-600" /> Excel
             </button>
-            <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest">
-              <FilePdf size={14} className="text-rose-600" /> PDF
+            <button onClick={exportToPDF} className="flex items-center gap-1.5 px-3 md:px-4 py-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl md:rounded-2xl transition-all font-bold text-[9px] md:text-[10px] uppercase tracking-widest">
+              <FilePdf size={12} className="text-rose-600" /> PDF
             </button>
           </div>
-          <Link href="/scanner" className="flex items-center gap-2 px-6 py-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-3xl hover-lift font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl">
-            <QrCode size={18} /> Scan QR
-          </Link>
-          <button onClick={() => setIsAddingSession(true)} className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-3xl hover-lift shadow-2xl shadow-indigo-500/30 font-black text-xs uppercase tracking-widest transition-all active:scale-95">
+          <button onClick={() => setIsAddingSession(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 md:px-8 md:py-4 bg-indigo-600 text-white rounded-2xl md:rounded-3xl hover-lift shadow-xl shadow-indigo-500/20 font-black text-xs uppercase tracking-widest transition-all active:scale-95">
             <Plus size={18} strokeWidth={3} /> Tambah Sesi
           </button>
         </div>
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <SessionKPI label="Total Siswa Aktif" value={stats?.totalStudents || 0} icon={<Users />} />
-        <SessionKPI label="Kehadiran Hari Ini" value={stats?.recentAttendance?.length || 0} icon={<Activity />} color="indigo" />
-        <SessionKPI label="Hampir Habis" value={packages.filter(p => p.status === 'WARNING').length} icon={<AlertCircle />} color="rose" />
-        <SessionKPI label="Selesai Bulan Ini" value={packages.filter(p => p.status === 'COMPLETED').length} icon={<CheckCircle2 />} color="emerald" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <SessionKPI href="/students" label="Total Siswa" value={stats?.totalStudents || 0} icon={<Users size={18} />} />
+        <SessionKPI href="/scanner" label="Hadir Hari Ini" value={stats?.recentAttendance?.length || 0} icon={<Activity size={18} />} color="indigo" />
+        <SessionKPI href="/sessions" label="Limit Sesi" value={packages.filter(p => p.status === 'WARNING').length} icon={<AlertCircle size={18} />} color="rose" />
+        <SessionKPI href="/sessions" label="Selesai" value={packages.filter(p => p.status === 'COMPLETED').length} icon={<CheckCircle2 size={18} />} color="emerald" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <QuickAccessCard
+          href="/students"
+          icon={<GraduationCap size={20} />}
+          title="Data Siswa"
+          description="Lihat, tambah, edit, dan bagikan Parent Portal."
+        />
+        <QuickAccessCard
+          href="/teachers"
+          icon={<Presentation size={20} />}
+          title="Data Guru"
+          description="Kelola guru, QR, dan laporan kehadiran."
+        />
+        <QuickAccessCard
+          href="/scanner"
+          icon={<QrCode size={20} />}
+          title="Scan Siswa"
+          description="Catat kedatangan siswa dan sesi terapi."
+        />
+        <QuickAccessCard
+          href="/teacher-scanner"
+          icon={<ShieldCheck size={20} />}
+          title="Scan Guru"
+          description="Aplikasi khusus absensi kedatangan guru."
+        />
       </div>
 
       {stats?.duplicateStudentScans?.length > 0 && (
@@ -225,7 +257,11 @@ export default function DashboardPage() {
           </div>
           <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {stats.duplicateStudentScans.map((item: any) => (
-              <div key={item.studentId} className="rounded-2xl border border-amber-200/70 bg-white/70 p-4 dark:border-amber-900/40 dark:bg-zinc-950/30">
+              <Link
+                key={item.studentId}
+                href={`/students/${item.studentId}`}
+                className="rounded-2xl border border-amber-200/70 bg-white/70 p-4 transition-all hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-lg hover:shadow-amber-500/10 dark:border-amber-900/40 dark:bg-zinc-950/30"
+              >
                 <p className="font-black text-zinc-900 dark:text-zinc-100">{item.student?.name || 'Siswa tidak ditemukan'}</p>
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <p className="font-mono text-xs font-bold text-zinc-500">{item.student?.registrationNo || item.studentId}</p>
@@ -233,42 +269,39 @@ export default function DashboardPage() {
                     {item.count}x scan
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       )}
 
       {/* Filter Panel */}
-      <div className="flex flex-col lg:flex-row gap-4 p-3 glass-card rounded-[32px]">
+      <div className="flex flex-col lg:flex-row gap-2 md:gap-4 p-2 md:p-3 glass-card rounded-[24px] md:rounded-[32px] border border-zinc-200/50 dark:border-zinc-800/50">
         <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
           <input 
             placeholder="Cari nama siswa..." 
-            className="w-full pl-12 pr-4 py-3 bg-transparent border-none outline-none font-bold text-sm"
+            className="w-full pl-10 md:pl-12 pr-4 py-2 md:py-3 bg-transparent border-none outline-none font-bold text-xs md:text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="h-10 w-[1px] bg-zinc-200 dark:bg-zinc-800 hidden lg:block" />
-        <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-2 lg:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide px-2">
           <FilterDropdown label="Program" options={['Semua Program', 'ABA', 'SI', 'SPEECH', 'OT', 'ACADEMIC']} value={programFilter} onChange={setProgramFilter} />
           <FilterDropdown label="Status" options={['ALL', 'ACTIVE', 'WARNING', 'COMPLETED']} value={statusFilter} onChange={setStatusFilter} />
-          <FilterDropdown label="Terapis" options={['Semua Terapis', ...THERAPISTS]} value={therapistFilter} onChange={setTherapistFilter} />
-          <FilterDropdown label="Jadwal" options={['Semua Jadwal', ...SCHEDULES]} value={scheduleFilter} onChange={setScheduleFilter} />
-          <FilterDropdown label="Sesi Terpakai" options={SESSION_RANGES} value={sessionRangeFilter} onChange={setSessionRangeFilter} />
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="glass-card rounded-[40px] overflow-hidden shadow-2xl">
+      <div className="glass-card rounded-[32px] md:rounded-[40px] overflow-hidden shadow-xl md:shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50">
         <table className="w-full text-sm text-left">
           <thead className="bg-zinc-50/50 dark:bg-zinc-800/50 border-b border-zinc-200/50">
             <tr>
-              <th className="px-10 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Siswa & Program</th>
-              <th className="px-6 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Progress Sesi</th>
-              <th className="px-6 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Status</th>
-              <th className="px-10 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em] text-right">Detail</th>
+              <th className="px-6 md:px-10 py-4 md:py-6 font-black text-zinc-400 uppercase text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em]">Siswa</th>
+              <th className="hidden sm:table-cell px-6 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Progress</th>
+              <th className="px-6 py-4 md:py-6 font-black text-zinc-400 uppercase text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em]">Status</th>
+              <th className="hidden md:table-cell px-10 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em] text-right">Detail</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -276,24 +309,23 @@ export default function DashboardPage() {
               <tr><td colSpan={4} className="p-20 text-center animate-pulse font-black uppercase text-xs tracking-widest text-zinc-400">Menyinkronkan data...</td></tr>
             ) : filteredPackages.map((pkg) => (
               <tr key={pkg.id} onClick={() => openDetail(pkg)} className="group hover:bg-white/50 dark:hover:bg-zinc-900/40 transition-all duration-500 cursor-pointer">
-                <td className="px-10 py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center font-black text-lg shadow-inner">
+                <td className="px-6 md:px-10 py-4 md:py-6">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center font-black text-sm md:text-lg shadow-inner">
                       {pkg.student.name.charAt(0)}
                     </div>
                     <div>
-                      <div className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-base">{pkg.student.name}</div>
-                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-wider">{pkg.program.name}</span>
+                      <div className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-sm md:text-base line-clamp-1">{pkg.student.name}</div>
+                      <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded text-[8px] md:text-[9px] font-black uppercase tracking-wider">{pkg.program.name}</span>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="hidden sm:table-cell px-6 py-4">
                   <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-black uppercase text-zinc-400">
+                    <div className="flex justify-between text-[9px] md:text-[10px] font-black uppercase text-zinc-400">
                       <span>{pkg.usedSessions} / {pkg.totalSessions} Sesi</span>
-                      <span className={pkg.totalSessions - pkg.usedSessions <= 2 ? 'text-amber-600' : ''}>{pkg.totalSessions - pkg.usedSessions} Sisa</span>
                     </div>
-                    <div className="w-40 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
+                    <div className="w-32 md:w-40 h-1.5 md:h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
                       <div 
                         className={`h-full transition-all duration-1000 ${pkg.status === 'WARNING' ? 'bg-amber-500' : 'bg-indigo-600'}`}
                         style={{ width: `${(pkg.usedSessions / pkg.totalSessions) * 100}%` }}
@@ -302,14 +334,17 @@ export default function DashboardPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                   <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                     pkg.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : 
-                     pkg.status === 'WARNING' ? 'bg-amber-500/10 text-amber-600' : 'bg-rose-500/10 text-rose-600'
-                   }`}>
-                     {pkg.status === 'ACTIVE' ? '🟢 Aktif' : pkg.status === 'WARNING' ? '🟡 Limit' : '🔴 Selesai'}
-                   </span>
+                   <div className="flex flex-col gap-1.5">
+                     <span className={`w-fit px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest ${
+                       pkg.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' :
+                       pkg.status === 'WARNING' ? 'bg-amber-500/10 text-amber-600' : 'bg-rose-500/10 text-rose-600'
+                     }`}>
+                       {pkg.status === 'ACTIVE' ? '🟢 Aktif' : pkg.status === 'WARNING' ? '🟡 Limit' : '🔴 Selesai'}
+                     </span>
+                     <span className="sm:hidden text-[9px] font-bold text-zinc-400">{pkg.usedSessions}/{pkg.totalSessions} Sesi</span>
+                   </div>
                 </td>
-                <td className="px-10 py-6 text-right">
+                <td className="hidden md:table-cell px-10 py-6 text-right">
                   <button className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl group-hover:bg-zinc-900 group-hover:text-white transition-all">
                     <ChevronRight size={18} />
                   </button>
@@ -431,6 +466,13 @@ export default function DashboardPage() {
                   <h2 className="text-3xl font-black tracking-tight">{selectedPkg.student.name}</h2>
                   <p className="text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em]">{selectedPkg.program.name} Program</p>
                 </div>
+                <Link
+                  href={`/students/${selectedPkg.student.id}`}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-zinc-900 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-600 dark:bg-white dark:text-zinc-900 dark:hover:bg-indigo-100"
+                >
+                  <User size={14} />
+                  Lihat Data Siswa
+                </Link>
               </div>
 
               <div className="space-y-6">
@@ -500,28 +542,66 @@ export default function DashboardPage() {
   );
 }
 
-function SessionKPI({ label, value, icon, color = 'zinc' }: any) {
+function SessionKPI({ label, value, icon, color = 'zinc', href }: any) {
   const colors: any = {
-    zinc: 'text-zinc-600 bg-zinc-100',
-    indigo: 'text-indigo-600 bg-indigo-50',
-    rose: 'text-rose-600 bg-rose-50',
-    emerald: 'text-emerald-600 bg-emerald-50'
+    zinc: 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800/50',
+    indigo: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20',
+    rose: 'text-rose-600 bg-rose-50 dark:bg-rose-900/20',
+    emerald: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20'
   };
+
+  const content = (
+    <>
+      <div className={`p-2.5 md:p-4 w-fit rounded-xl md:rounded-2xl mb-3 md:mb-6 ${colors[color]}`}>{icon}</div>
+      <div className="text-2xl md:text-4xl font-black tracking-tighter mb-0.5 md:mb-1">{value}</div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] text-zinc-400 line-clamp-1">{label}</p>
+        <ChevronRight size={15} className="text-zinc-300 transition-transform group-hover:translate-x-1 group-hover:text-indigo-500" />
+      </div>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="group block p-4 md:p-8 glass-card rounded-[24px] md:rounded-[32px] hover-lift transition-all border border-zinc-200/50 dark:border-zinc-800/50 focus:outline-none focus:ring-4 focus:ring-indigo-500/10">
+        {content}
+      </Link>
+    );
+  }
+
   return (
-    <div className="p-8 glass-card rounded-[32px] hover-lift group transition-all">
-      <div className={`p-4 w-fit rounded-2xl mb-6 ${colors[color]}`}>{icon}</div>
-      <div className="text-4xl font-black tracking-tighter mb-1">{value}</div>
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{label}</p>
+    <div className="group p-4 md:p-8 glass-card rounded-[24px] md:rounded-[32px] hover-lift transition-all border border-zinc-200/50 dark:border-zinc-800/50">
+      {content}
     </div>
+  );
+}
+
+function QuickAccessCard({ href, icon, title, description }: any) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-4 rounded-[24px] border border-zinc-200/70 bg-white/75 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10 dark:border-zinc-800/70 dark:bg-zinc-900/60 dark:hover:border-indigo-900/60"
+    >
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-black tracking-tight text-zinc-950 dark:text-zinc-50">{title}</p>
+          <ChevronRight size={16} className="shrink-0 text-zinc-300 transition-transform group-hover:translate-x-1 group-hover:text-indigo-500" />
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">{description}</p>
+      </div>
+    </Link>
   );
 }
 
 function FilterDropdown({ label, options, value, onChange }: any) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border border-zinc-100 dark:border-zinc-700">
-      <span className="text-[9px] font-black uppercase text-zinc-400">{label}:</span>
+    <div className="flex shrink-0 items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-zinc-100 dark:bg-zinc-800/50 rounded-xl md:rounded-2xl border border-zinc-200/50 dark:border-zinc-700/30">
+      <span className="text-[8px] md:text-[9px] font-black uppercase text-zinc-400">{label}:</span>
       <select 
-        className="bg-transparent text-xs font-bold outline-none cursor-pointer"
+        className="bg-transparent text-[10px] md:text-xs font-bold outline-none cursor-pointer"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >

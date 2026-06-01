@@ -39,4 +39,8 @@
   .form-input-modern:disabled {
     @apply cursor-not-allowed border-zinc-200/60 bg-zinc-100/70 text-zinc-500 opacity-70 grayscale dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-400;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

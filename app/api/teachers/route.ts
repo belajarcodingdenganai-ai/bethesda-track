@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
         latestAttendance: t.attendanceLogs[0] || null,
       })),
       total: teachers.length,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
+      }
     });
   } catch (error) {
     console.error('Error fetching teachers:', error);
