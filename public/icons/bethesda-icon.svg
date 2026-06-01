@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bethesda Track">
+  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
+  <circle cx="256" cy="256" r="152" fill="#ffffff" opacity="0.14"/>
+  <path fill="#ffffff" d="M240 120h32c11 0 20 9 20 20v76h76c11 0 20 9 20 20v40c0 11-9 20-20 20h-76v76c0 11-9 20-20 20h-32c-11 0-20-9-20-20v-76h-76c-11 0-20-9-20-20v-40c0-11 9-20 20-20h76v-76c0-11 9-20 20-20Z"/>
+  <path fill="#c7d2fe" d="M160 384h192c18 0 32 14 32 32s-14 32-32 32H160c-18 0-32-14-32-32s14-32 32-32Z" opacity="0.55"/>
+</svg>
