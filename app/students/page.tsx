@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash } from 'lucide-react';
+import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
