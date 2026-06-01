@@ -205,6 +205,40 @@ export default function DashboardPage() {
         <SessionKPI label="Selesai Bulan Ini" value={packages.filter(p => p.status === 'COMPLETED').length} icon={<CheckCircle2 />} color="emerald" />
       </div>
 
+      {stats?.duplicateStudentScans?.length > 0 && (
+        <div className="rounded-[32px] border border-amber-200 bg-amber-50 p-5 shadow-xl shadow-amber-500/10 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white">
+                <AlertCircle size={22} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-amber-900 dark:text-amber-100">Alert Scan Berulang Siswa</h2>
+                <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-300">
+                  Ada {stats.duplicateStudentScans.length} siswa yang scan lebih dari satu kali hari ini. Scan tambahan dicatat sebagai report, sesi tidak dikurangi ulang.
+                </p>
+              </div>
+            </div>
+            <Link href="/students" className="rounded-2xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-amber-700">
+              Lihat Siswa
+            </Link>
+          </div>
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {stats.duplicateStudentScans.map((item: any) => (
+              <div key={item.studentId} className="rounded-2xl border border-amber-200/70 bg-white/70 p-4 dark:border-amber-900/40 dark:bg-zinc-950/30">
+                <p className="font-black text-zinc-900 dark:text-zinc-100">{item.student?.name || 'Siswa tidak ditemukan'}</p>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <p className="font-mono text-xs font-bold text-zinc-500">{item.student?.registrationNo || item.studentId}</p>
+                  <span className="rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-black uppercase text-amber-700">
+                    {item.count}x scan
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filter Panel */}
       <div className="flex flex-col lg:flex-row gap-4 p-3 glass-card rounded-[32px]">
         <div className="relative flex-1 group">

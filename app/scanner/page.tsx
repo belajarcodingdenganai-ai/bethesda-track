@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   AlertCircle,
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   Clock,
   QrCode,
@@ -22,10 +23,19 @@ type ScanResult = {
   role?: 'TEACHER' | 'STUDENT';
   type?: 'CHECK_IN' | 'CHECK_OUT';
   time: Date | string;
+  date?: Date | string;
+  scheduledStart?: Date | string;
   used?: number;
   total?: number;
   isLate?: boolean;
+  minutesLate?: number;
+  duplicateScan?: boolean;
   notes?: string;
+};
+
+type FailedScanResult = {
+  success: false;
+  error: string;
 };
 
 export default function ScannerPage() {
@@ -58,10 +68,18 @@ export default function ScannerPage() {
         const result = await processAttendance(decodedText.trim(), 'teacher-id-placeholder');
 
         if (result.success) {
-          setScanResult(result as ScanResult);
-          toast.success(`Absensi berhasil: ${result.name}`);
+          const successfulResult = result as ScanResult;
+          setScanResult(successfulResult);
+          if (successfulResult.role === 'TEACHER' && successfulResult.isLate) {
+            toast.warning(`Anda terlambat ${successfulResult.minutesLate || 0} menit.`);
+          } else if (successfulResult.role === 'STUDENT' && successfulResult.duplicateScan) {
+            toast.warning(successfulResult.notes || `${successfulResult.name} sudah scan hari ini.`);
+          } else {
+            toast.success(`Absensi berhasil: ${successfulResult.name}`);
+          }
         } else {
-          setErrorResult('Gagal memproses QR Code');
+          const failedResult = result as FailedScanResult;
+          setErrorResult(failedResult.error || 'Gagal memproses QR Code');
         }
       } catch (error: any) {
         setErrorResult(error.message || 'QR Code tidak valid atau sudah kadaluwarsa');
@@ -236,7 +254,7 @@ export default function ScannerPage() {
                 onClick={resetScanner}
                 className="w-full py-4 rounded-[20px] bg-zinc-900 text-white font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-zinc-800 active:scale-95 transition-all"
               >
-                Scan Siswa Lain
+                Scan Selanjutnya
               </button>
             </div>
           </div>
@@ -260,7 +278,16 @@ export default function ScannerPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 w-full pt-2">
+              <div className="grid grid-cols-3 gap-3 w-full pt-2">
+                <div className="p-3 bg-white/50 dark:bg-zinc-800/50 rounded-3xl border border-white/50">
+                  <CalendarDays size={14} className="text-indigo-500 mx-auto mb-1" />
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
+                    Tanggal
+                  </p>
+                  <p className="text-sm font-black tabular-nums">
+                    {scanResult?.time ? format(new Date(scanResult.time), 'dd/MM') : '-'}
+                  </p>
+                </div>
                 <div className="p-3 bg-white/50 dark:bg-zinc-800/50 rounded-3xl border border-white/50">
                   <Clock size={14} className="text-indigo-500 mx-auto mb-1" />
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
@@ -286,26 +313,30 @@ export default function ScannerPage() {
               </div>
 
               {hasSessionInfo ? (
-                <div className="w-full p-3.5 bg-zinc-900 text-white rounded-3xl">
+                <div className={`w-full p-3.5 text-white rounded-3xl ${scanResult?.duplicateScan ? 'bg-amber-600' : 'bg-zinc-900'}`}>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-1">
-                    Status Sesi
+                    {scanResult?.duplicateScan ? 'Scan Berulang' : 'Status Sesi'}
                   </p>
-                  <div className="flex justify-between items-center gap-3 px-2">
-                    <span className="font-bold text-xs">
-                      {scanResult?.used} / {scanResult?.total} Terpakai
-                    </span>
-                    <div className="h-2 w-32 bg-white/20 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400"
-                        style={{ width: `${sessionSummary.progress}%` }}
-                      />
+                  {scanResult?.duplicateScan ? (
+                    <p className="font-bold text-xs">{scanResult.notes}</p>
+                  ) : (
+                    <div className="flex justify-between items-center gap-3 px-2">
+                      <span className="font-bold text-xs">
+                        {scanResult?.used} / {scanResult?.total} Terpakai
+                      </span>
+                      <div className="h-2 w-32 bg-white/20 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-400"
+                          style={{ width: `${sessionSummary.progress}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
-                <div className="w-full p-3.5 bg-zinc-900 text-white rounded-3xl">
+                <div className={`w-full p-3.5 text-white rounded-3xl ${scanResult?.isLate ? 'bg-amber-600' : 'bg-zinc-900'}`}>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-1">
-                    Keterangan
+                    {scanResult?.isLate ? 'Notifikasi Keterlambatan' : 'Keterangan'}
                   </p>
                   <p className="font-bold text-xs">{scanResult?.notes || 'Absensi staf tercatat'}</p>
                 </div>

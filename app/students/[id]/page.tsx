@@ -15,7 +15,6 @@ import {
   GraduationCap,
   HeartPulse,
   MessageSquare,
-  Phone,
   ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -29,14 +28,17 @@ export default function StudentDetailPage() {
   const [isParentPortal, setIsParentPortal] = useState(false);
 
   useEffect(() => {
-    setIsParentPortal(new URLSearchParams(window.location.search).get('portal') === 'parent');
-    fetchStudent();
+    const parentPortal = new URLSearchParams(window.location.search).get('portal') === 'parent';
+    setIsParentPortal(parentPortal);
+    fetchStudent(parentPortal);
   }, [studentId]);
 
-  const fetchStudent = async () => {
+  const fetchStudent = async (parentPortal = false) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/students/${studentId}`);
+      const response = await fetch(
+        `/api/students/${studentId}${parentPortal ? '?portal=parent' : ''}`,
+      );
       if (!response.ok) throw new Error('Student not found');
       const data = await response.json();
       setStudent(data);
@@ -70,10 +72,15 @@ export default function StudentDetailPage() {
   const percentage = totalSessions > 0 ? (sessionsUsed / totalSessions) * 100 : 0;
   const remainingSessions = Math.max(totalSessions - sessionsUsed, 0);
   const recentAttendances = student.attendances?.slice(0, 8) || [];
+  const adminWhatsAppNumber = '6285280039953';
+  const adminWhatsAppMessage = encodeURIComponent(
+    `Halo Admin Bethesda Special School, saya ingin bertanya mengenai Parent Portal untuk ${student.name}.`
+  );
+  const adminWhatsAppHref = `https://wa.me/${adminWhatsAppNumber}?text=${adminWhatsAppMessage}`;
 
   if (isParentPortal) {
     return (
-      <div className="min-h-screen -m-6 bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
         <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
           <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -88,10 +95,12 @@ export default function StudentDetailPage() {
               </div>
             </div>
             <a
-              href="tel:+620000000000"
+              href={adminWhatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-sm font-bold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
             >
-              <Phone size={16} />
+              <MessageSquare size={16} />
               Hubungi Sekolah
             </a>
           </div>
@@ -240,10 +249,12 @@ export default function StudentDetailPage() {
                   Hubungi admin sekolah untuk perubahan jadwal, konfirmasi sesi, atau pertanyaan paket.
                 </p>
                 <a
-                  href="tel:+620000000000"
+                  href={adminWhatsAppHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-600 text-white font-black text-sm hover:bg-emerald-700 transition-colors"
                 >
-                  <Phone size={16} />
+                  <MessageSquare size={16} />
                   Hubungi Admin
                 </a>
               </div>

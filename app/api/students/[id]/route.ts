@@ -1,26 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { prismaErrorResponse } from '@/lib/prisma-errors';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const isParentPortal = searchParams.get('portal') === 'parent';
+
     const student = await prisma.student.findUnique({
       where: { id: id },
-      include: {
+      select: {
+        id: true,
+        registrationNo: true,
+        name: true,
+        nickname: true,
+        gender: true,
+        age: true,
+        address: !isParentPortal,
+        parentPhone: !isParentPortal,
+        parentEmail: !isParentPortal,
+        school: !isParentPortal,
+        diagnosis: !isParentPortal,
+        qrCode: !isParentPortal,
+        status: true,
         packages: {
-          include: { program: true },
+          orderBy: { createdAt: 'desc' },
+          take: isParentPortal ? 1 : 5,
+          select: {
+            id: true,
+            totalSessions: true,
+            usedSessions: true,
+            frequency: true,
+            status: true,
+            createdAt: true,
+            program: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         },
-        programs: {
-          include: { program: true },
+        programs: isParentPortal ? false : {
+          select: {
+            id: true,
+            program: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         },
         attendances: {
-          take: 20,
+          take: isParentPortal ? 8 : 10,
           orderBy: { checkIn: 'desc' },
-          include: {
+          select: {
+            id: true,
+            checkIn: true,
+            checkOut: true,
             teacher: {
-              include: { user: true },
+              select: {
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
             },
-            program: true,
+            program: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         _count: {
@@ -36,10 +90,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    return NextResponse.json(student);
+    return NextResponse.json(student, {
+      headers: isParentPortal
+        ? { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=45' }
+        : undefined,
+    });
   } catch (error) {
     console.error('Error fetching student:', error);
-    return NextResponse.json({ error: 'Failed to fetch student' }, { status: 500 });
+    return prismaErrorResponse(error, 'Failed to fetch student');
   }
 }
 

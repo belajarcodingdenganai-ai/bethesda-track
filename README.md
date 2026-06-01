@@ -298,15 +298,6 @@ DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.sup
 
 ---
 
-**Version**: 0.1.0  
-**Last Updated**: May 31, 2026  
+**Version**: 0.1.1
+**Last Updated**: June 1, 2026
 **Status**: 🟢 Development Phase - Core features complete, ready for testing
-# bethesda-track
-# bethesda-track
-# bethesda-track
-# bethesda-track
-# bethesda-track
-# bethesda-track
-# bethesda-track
-# bethesda-track1
-# bethesda-track

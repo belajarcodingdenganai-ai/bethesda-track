@@ -23,7 +23,16 @@ export function QRScannerView({ teacherId }: { teacherId: string }) {
           try {
             const res = await processAttendance(decodedText, teacherId);
             if (res.success === true) {
-              toast.success(`✅ Absensi Berhasil: ${res.name}. Sisa: ${res.total - res.used} sesi`);
+              const successfulResult = res as any;
+              if (successfulResult.role === 'TEACHER' && successfulResult.isLate) {
+                toast.warning(`Anda terlambat ${successfulResult.minutesLate || 0} menit.`);
+              } else if (successfulResult.role === 'TEACHER') {
+                toast.success(`Absensi guru berhasil: ${successfulResult.name}. Tepat waktu.`);
+              } else if (successfulResult.role === 'STUDENT' && successfulResult.duplicateScan) {
+                toast.warning(successfulResult.notes || `${successfulResult.name} sudah scan hari ini.`);
+              } else {
+                toast.success(`Absensi Berhasil: ${successfulResult.name}. Sisa: ${successfulResult.total - successfulResult.used} sesi`);
+              }
             } else {
               toast.error((res as any).error || 'Error during attendance');
             }

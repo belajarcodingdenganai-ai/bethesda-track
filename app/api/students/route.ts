@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
 
 async function getNextStudentRegistrationNo() {
   const students = await prisma.student.findMany({
@@ -31,7 +32,19 @@ export async function GET(request: NextRequest) {
     const [students, total] = await Promise.all([
       prisma.student.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          registrationNo: true,
+          name: true,
+          nickname: true,
+          gender: true,
+          age: true,
+          dateOfBirth: true,
+          address: true,
+          diagnosis: true,
+          status: true,
+          parentPhone: true,
+          qrCode: true,
           _count: {
             select: {
               attendances: true,
@@ -54,7 +67,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching students:', error);
-    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 });
+    return prismaErrorResponse(error, 'Failed to fetch students');
   }
 }
 
@@ -88,6 +101,6 @@ export async function POST(request: NextRequest) {
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'Registration number or QR code already exists' }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to create student' }, { status: 500 });
+    return NextResponse.json({ error: getPrismaErrorMessage(error) || 'Failed to create student' }, { status: 500 });
   }
 }

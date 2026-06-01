@@ -1,15 +1,20 @@
 import QRCode from 'qrcode';
 
-export async function generateQRCode(text: string, options?: any) {
+export async function generateQRCode(text: string, options?: any): Promise<string> {
   try {
-    const qrCodeDataUrl = await QRCode.toDataURL(text, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF',
-      },
-      ...options,
+    const qrCodeDataUrl = await new Promise<string>((resolve, reject) => {
+      QRCode.toDataURL(text, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+        ...options,
+      }, (error, url) => {
+        if (error) reject(error);
+        else resolve(url);
+      });
     });
     return qrCodeDataUrl;
   } catch (error) {
@@ -18,7 +23,7 @@ export async function generateQRCode(text: string, options?: any) {
   }
 }
 
-export async function generateQRCodeCanvas(text: string, canvas: HTMLCanvasElement) {
+export async function generateQRCodeCanvas(text: string, canvas: HTMLCanvasElement): Promise<void> {
   try {
     await QRCode.toCanvas(canvas, text, {
       width: 300,

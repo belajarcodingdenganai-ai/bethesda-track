@@ -88,6 +88,7 @@ model Teacher {
   
   // Relations
   attendances   Attendance[]
+  attendanceLogs TeacherAttendance[]
   notifications Notification[]
   
   createdAt     DateTime  @default(now())
@@ -95,6 +96,28 @@ model Teacher {
 
   @@index([userId])
   @@index([teacherId])
+}
+
+model TeacherAttendance {
+  id              String    @id @default(cuid())
+
+  teacherId       String
+  teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  attendanceDate  DateTime
+  scheduledStart  DateTime
+  checkIn         DateTime
+  isLate          Boolean   @default(false)
+  minutesLate     Int       @default(0)
+  notes           String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([teacherId, attendanceDate])
+  @@index([teacherId])
+  @@index([attendanceDate])
+  @@index([isLate])
 }
 
 // Parent Model

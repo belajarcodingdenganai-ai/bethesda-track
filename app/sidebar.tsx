@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, QrCode, Settings, CreditCard, BarChart3, ChevronUp, GraduationCap, Presentation, Banknote, CalendarDays, Bell, Menu, X } from "lucide-react";
+import { LayoutDashboard, QrCode, Settings, CreditCard, ChevronUp, GraduationCap, Presentation, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -89,6 +89,13 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
               active={pathname === "/scanner"}
               onNavigate={onNavigate}
             />
+            <NavItem
+              href="/teacher-scanner"
+              icon={<Presentation size={18} />}
+              label="Scan Guru"
+              active={pathname === "/teacher-scanner"}
+              onNavigate={onNavigate}
+            />
             <NavItem 
               href="/teachers" 
               icon={<Presentation size={18} />} 
@@ -107,34 +114,6 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
               icon={<CreditCard size={18} />} 
               label="Sesi Terapi" 
               active={pathname === "/sessions"}
-              onNavigate={onNavigate}
-            />
-            <NavItem 
-              href="/reports" 
-              icon={<BarChart3 size={18} />} 
-              label="Laporan & Insight" 
-              active={pathname === "/reports"}
-              onNavigate={onNavigate}
-            />
-            <NavItem 
-              href="/revenue" 
-              icon={<Banknote size={18} />} 
-              label="Keuangan" 
-              active={pathname === "/revenue"}
-              onNavigate={onNavigate}
-            />
-            <NavItem 
-              href="/schedules" 
-              icon={<CalendarDays size={18} />} 
-              label="Jadwal" 
-              active={pathname === "/schedules"}
-              onNavigate={onNavigate}
-            />
-            <NavItem 
-              href="/notifications" 
-              icon={<Bell size={18} />} 
-              label="Notifikasi" 
-              active={pathname === "/notifications"}
               onNavigate={onNavigate}
             />
             <NavItem 

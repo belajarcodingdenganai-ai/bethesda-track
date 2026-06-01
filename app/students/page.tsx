@@ -5,7 +5,8 @@ import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare,
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { createStudent, updateStudent } from '@/app/actions/member';
+import { createStudent, deleteStudent, updateStudent } from '@/app/actions/member';
+import MemberQrCard from '@/components/qr/member-qr-card';
 
 interface Student {
   id: string;
@@ -35,6 +36,8 @@ export default function StudentsPage() {
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view' | 'success' | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isParentPortalOpen, setIsParentPortalOpen] = useState(false);
+  const [formDraft, setFormDraft] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Wizard State
   const [step, setStep] = useState(1);
@@ -149,11 +152,21 @@ export default function StudentsPage() {
     toast.success('Data siswa berhasil diekspor ke CSV');
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus data siswa: ${name}?`)) {
-      // Di sini biasanya Anda memanggil API delete
-      setStudents(prev => prev.filter(s => s.id !== id));
-      toast.success(`Data siswa ${name} berhasil dihapus`);
+      const result = await deleteStudent(id);
+
+      if (result.success) {
+        setStudents(prev => prev.filter(s => s.id !== id));
+        if (selectedStudent?.id === id) {
+          setSelectedStudent(null);
+          setModalMode(null);
+        }
+        toast.success(`Data siswa ${name} berhasil dihapus`);
+        fetchStudents();
+      } else {
+        toast.error(`Gagal menghapus siswa: ${result.error}`);
+      }
     }
   };
 
@@ -189,26 +202,48 @@ export default function StudentsPage() {
     setSelectedStudent(student);
     setModalMode(mode);
     setStep(1);
+    setFormDraft({
+      name: student?.name || '',
+      nickname: student?.nickname || '',
+      gender: student?.gender || 'L',
+      age: student?.age != null ? String(student.age) : '',
+      parentPhone: student?.parentPhone || '',
+      address: student?.address || '',
+      diagnosis: student?.diagnosis || '',
+    });
     if (student?.dateOfBirth) setDob(format(new Date(student.dateOfBirth), 'yyyy-MM-dd'));
     if (student?.diagnosis) setSelectedDiag(student.diagnosis.split(', '));
     setProfilePreview(null);
   };
 
+  const handleFormDraftChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    if (!target.name) return;
+    setFormDraft(prev => ({ ...prev, [target.name]: target.value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setFormDraft(Object.fromEntries(formData.entries()) as Record<string, string>);
+    setIsSubmitting(true);
     
     let result;
-    if (modalMode === 'add') {
-      result = await createStudent(formData);
-    } else if (modalMode === 'edit' && selectedStudent) {
-      result = await updateStudent(selectedStudent.id, formData);
+    try {
+      if (modalMode === 'add') {
+        result = await createStudent(formData);
+      } else if (modalMode === 'edit' && selectedStudent) {
+        result = await updateStudent(selectedStudent.id, formData);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
     
     if (result?.success) {
       if (modalMode === 'add') {
         setSelectedStudent(result.data as Student);
         setModalMode('success');
+        setFormDraft({});
       } else {
         setModalMode(null);
         toast.success('Data siswa diperbarui');
@@ -267,15 +302,13 @@ export default function StudentsPage() {
 
             <div className="overflow-y-auto p-5 sm:p-8">
               {(modalMode === 'view' || modalMode === 'success') && selectedStudent && (
-                <div className="mb-8 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5">
-                  <div className="glass-card rounded-[24px] flex flex-col items-center justify-center border-dashed border-2 border-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-500/5 p-5">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${selectedStudent.qrCode}`}
-                      alt="Barcode QR Siswa"
-                      className="w-40 h-40 rounded-2xl shadow-xl bg-white p-3"
-                    />
-                    <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-indigo-600">Barcode QR</p>
-                  </div>
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5">
+                  <MemberQrCard
+                    name={selectedStudent.name}
+                    registrationNo={selectedStudent.registrationNo}
+                    qrCode={selectedStudent.qrCode}
+                    roleLabel="Siswa"
+                  />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 p-5">
                       <div className="flex items-center gap-2 text-zinc-400">
@@ -305,41 +338,41 @@ export default function StudentsPage() {
               )}
 
               {modalMode !== 'success' && (
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[1fr_0.85fr] gap-6">
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1 sm:col-span-2">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6">
+                      <div className="form-field-modern sm:col-span-2">
                         <label className="form-label-modern">Nama Lengkap</label>
-                        <input name="name" defaultValue={selectedStudent?.name} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama lengkap siswa" />
+                        <input name="name" value={formDraft.name || ''} required disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="Nama lengkap siswa" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="form-field-modern">
                         <label className="form-label-modern">Nama Panggilan</label>
-                        <input name="nickname" defaultValue={selectedStudent?.nickname} disabled={modalMode === 'view'} className="form-input-modern" placeholder="Nama panggilan" />
+                        <input name="nickname" value={formDraft.nickname || ''} disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="Nama panggilan" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="form-field-modern">
                         <label className="form-label-modern">Gender</label>
-                        <select name="gender" defaultValue={selectedStudent?.gender || 'L'} required disabled={modalMode === 'view'} className="form-input-modern">
+                        <select name="gender" value={formDraft.gender || 'L'} required disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern">
                           <option value="L">Laki-laki</option>
                           <option value="P">Perempuan</option>
                         </select>
                       </div>
-                      <div className="space-y-1">
+                      <div className="form-field-modern">
                         <label className="form-label-modern">Usia</label>
-                        <input name="age" type="number" min="0" defaultValue={selectedStudent?.age} disabled={modalMode === 'view'} className="form-input-modern" placeholder="0" />
+                        <input name="age" type="number" min="0" value={formDraft.age || ''} disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="0" />
                       </div>
-                      <div className="space-y-1">
+                      <div className="form-field-modern">
                         <label className="form-label-modern">WhatsApp Orang Tua</label>
-                        <input name="parentPhone" defaultValue={selectedStudent?.parentPhone} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="628xxx" />
+                        <input name="parentPhone" value={formDraft.parentPhone || ''} required disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="628xxx" />
                       </div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="form-field-modern">
                       <label className="form-label-modern">Alamat Rumah</label>
-                      <input name="address" defaultValue={selectedStudent?.address} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Alamat lengkap" />
+                      <input name="address" value={formDraft.address || ''} required disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="Alamat lengkap" />
                     </div>
-                    <div className="space-y-1">
+                    <div className="form-field-modern">
                       <label className="form-label-modern">Diagnosis</label>
-                      <input name="diagnosis" defaultValue={selectedStudent?.diagnosis} required disabled={modalMode === 'view'} className="form-input-modern" placeholder="Diagnosis atau kebutuhan terapi" />
+                      <input name="diagnosis" value={formDraft.diagnosis || ''} required disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="Diagnosis atau kebutuhan terapi" />
                     </div>
                   </div>
 
@@ -371,8 +404,8 @@ export default function StudentsPage() {
                         {modalMode === 'view' ? 'Tutup' : 'Batal'}
                       </button>
                       {modalMode !== 'view' && (
-                        <button type="submit" className="w-full px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 active:scale-[0.99] transition-all uppercase tracking-widest text-[10px]">
-                          {modalMode === 'add' ? 'Simpan Siswa' : 'Simpan Perubahan'}
+                        <button type="submit" disabled={isSubmitting} className="w-full px-6 py-4 rounded-2xl bg-indigo-600 text-white font-black shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 active:scale-[0.99] transition-all uppercase tracking-widest text-[10px] disabled:cursor-not-allowed disabled:opacity-60">
+                          {isSubmitting ? 'Menyimpan...' : modalMode === 'add' ? 'Simpan Siswa' : 'Simpan Perubahan'}
                         </button>
                       )}
                     </div>
@@ -383,18 +416,6 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        .form-input-modern {
-          @apply w-full px-4 py-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/40 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/60 font-bold tracking-tight text-base transition-all duration-300;
-        }
-        .form-label-modern {
-          @apply ml-2 text-[10px] font-black uppercase text-zinc-400 tracking-[0.18em];
-        }
-        .form-input-modern:disabled {
-          @apply opacity-60 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/50 grayscale;
-        }
-      `}</style>
 
       {/* Filters */}
       <div className="flex flex-col lg:flex-row gap-4 p-3 glass-card rounded-[32px]">

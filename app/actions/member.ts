@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { ProgramType } from '@prisma/client';
+import { Prisma, ProgramType } from '@prisma/client';
 
 const PROGRAM_LABELS: Record<ProgramType, string> = {
   ABA: 'Applied Behavior Analysis',
@@ -59,11 +59,42 @@ async function getNextStudentRegistrationNo(tx: any) {
   return `BETH-${String(highestNumber + 1).padStart(3, '0')}`;
 }
 
+async function getNextTeacherRegistrationNo(tx: any) {
+  const teachers = await tx.teacher.findMany({
+    where: { teacherId: { startsWith: 'TCH-' } },
+    select: { teacherId: true },
+  });
+
+  const highestNumber = teachers.reduce((highest: number, teacher: { teacherId: string }) => {
+    const match = teacher.teacherId.match(/^TCH-(\d+)$/);
+    if (!match) return highest;
+    return Math.max(highest, Number(match[1]));
+  }, 0);
+
+  return `TCH-${String(highestNumber + 1).padStart(3, '0')}`;
+}
+
 function getOptionalFormString(formData: FormData, key: string) {
   const value = formData.get(key);
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function getActionErrorMessage(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+    return 'Tabel database belum dibuat. Jalankan sinkronisasi Prisma terlebih dahulu.';
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    return 'Data dengan identitas yang sama sudah terdaftar.';
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    return 'Data tidak ditemukan atau sudah dihapus.';
+  }
+
+  return error instanceof Error ? error.message : 'Terjadi kesalahan yang tidak diketahui.';
 }
 
 export async function createStudent(formData: FormData) {
@@ -139,7 +170,7 @@ export async function createStudent(formData: FormData) {
     });
   } catch (error: any) {
     console.error('Error creating student:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: getActionErrorMessage(error) };
   }
 }
 
@@ -174,7 +205,20 @@ export async function updateStudent(id: string, formData: FormData) {
     revalidatePath('/students');
     return { success: true, data: student };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: getActionErrorMessage(error) };
+  }
+}
+
+export async function deleteStudent(id: string) {
+  try {
+    await prisma.student.delete({
+      where: { id },
+    });
+
+    revalidatePath('/students');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
   }
 }
 
@@ -253,14 +297,20 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
 
 export async function createTeacher(formData: FormData) {
   try {
-    const name = formData.get('name') as string;
-    const email = formData.get('email') as string;
-    const teacherId = formData.get('teacherId') as string;
-    const phone = formData.get('phone') as string;
-    const division = formData.get('division') as string;
-    const position = formData.get('position') as string;
+    const name = getOptionalFormString(formData, 'name');
+    const email = getOptionalFormString(formData, 'email');
+    const phone = getOptionalFormString(formData, 'phone');
+    const division = getOptionalFormString(formData, 'division');
+    const position = getOptionalFormString(formData, 'position');
+
+    if (!name) throw new Error('Nama guru wajib diisi.');
+    if (!email) throw new Error('Email guru wajib diisi.');
+    if (!division) throw new Error('Divisi wajib diisi.');
+    if (!position) throw new Error('Jabatan wajib diisi.');
 
     return await prisma.$transaction(async (tx) => {
+      const teacherId = await getNextTeacherRegistrationNo(tx);
+
       // 1. Create User Account
       const user = await tx.user.create({
         data: {
@@ -278,14 +328,81 @@ export async function createTeacher(formData: FormData) {
           phone,
           division,
           position,
-          qrCode: `TCH-${teacherId}`,
+          qrCode: `TEACHER-${teacherId}`,
         },
+        include: { user: true },
       });
 
       revalidatePath('/teachers');
       return { success: true, data: teacher };
     });
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: getActionErrorMessage(error) };
+  }
+}
+
+export async function updateTeacher(id: string, formData: FormData) {
+  try {
+    const name = getOptionalFormString(formData, 'name');
+    const email = getOptionalFormString(formData, 'email');
+    const phone = getOptionalFormString(formData, 'phone');
+    const division = getOptionalFormString(formData, 'division');
+    const position = getOptionalFormString(formData, 'position');
+
+    if (!name) throw new Error('Nama guru wajib diisi.');
+    if (!email) throw new Error('Email guru wajib diisi.');
+    if (!division) throw new Error('Divisi wajib diisi.');
+    if (!position) throw new Error('Jabatan wajib diisi.');
+
+    return await prisma.$transaction(async (tx) => {
+      const existingTeacher = await tx.teacher.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+
+      if (!existingTeacher) throw new Error('Data guru tidak ditemukan.');
+
+      await tx.user.update({
+        where: { id: existingTeacher.userId },
+        data: { name, email },
+      });
+
+      const teacher = await tx.teacher.update({
+        where: { id },
+        data: {
+          phone,
+          division,
+          position,
+        },
+        include: { user: true },
+      });
+
+      revalidatePath('/teachers');
+      return { success: true, data: teacher };
+    });
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
+  }
+}
+
+export async function deleteTeacher(id: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const teacher = await tx.teacher.findUnique({
+        where: { id },
+        select: { userId: true },
+      });
+
+      if (!teacher) throw new Error('Data guru tidak ditemukan.');
+
+      await tx.user.delete({
+        where: { id: teacher.userId },
+      });
+    });
+
+    revalidatePath('/teachers');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
   }
 }

@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
+
+async function getNextTeacherRegistrationNo() {
+  const teachers = await prisma.teacher.findMany({
+    where: { teacherId: { startsWith: 'TCH-' } },
+    select: { teacherId: true },
+  });
+
+  const highestNumber = teachers.reduce((highest, teacher) => {
+    const match = teacher.teacherId.match(/^TCH-(\d+)$/);
+    if (!match) return highest;
+    return Math.max(highest, Number(match[1]));
+  }, 0);
+
+  return `TCH-${String(highestNumber + 1).padStart(3, '0')}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,7 +25,12 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             attendances: true,
+            attendanceLogs: true,
           },
+        },
+        attendanceLogs: {
+          orderBy: { checkIn: 'desc' },
+          take: 5,
         },
       },
       orderBy: { userId: 'asc' },
@@ -19,26 +40,28 @@ export async function GET(request: NextRequest) {
       data: teachers.map((t) => ({
         ...t,
         name: t.user?.name,
+        latestAttendance: t.attendanceLogs[0] || null,
       })),
       total: teachers.length,
     });
   } catch (error) {
     console.error('Error fetching teachers:', error);
-    return NextResponse.json({ error: 'Failed to fetch teachers' }, { status: 500 });
+    return prismaErrorResponse(error, 'Failed to fetch teachers');
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const teacherId = body.teacherId || await getNextTeacherRegistrationNo();
 
     const teacher = await prisma.teacher.create({
       data: {
-        teacherId: body.teacherId,
+        teacherId,
         division: body.division,
         position: body.position,
         phone: body.phone,
-        qrCode: body.qrCode || body.teacherId,
+        qrCode: body.qrCode || `TEACHER-${teacherId}`,
         user: {
           create: {
             email: body.email,
@@ -55,6 +78,6 @@ export async function POST(request: NextRequest) {
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'Teacher ID or QR code already exists' }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to create teacher' }, { status: 500 });
+    return NextResponse.json({ error: getPrismaErrorMessage(error) || 'Failed to create teacher' }, { status: 500 });
   }
 }
