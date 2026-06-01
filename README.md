@@ -288,7 +288,7 @@ If Supabase shows `prepared statement "s..." already exists` during local develo
 
 Example:
 ```bash
-DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=1"
 ```
 
 For serverless deployments that must use the Supabase Transaction Pooler on port `6543`, add `pgbouncer=true`:
@@ -301,5 +301,6 @@ DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.sup
 **Version**: 0.1.0  
 **Last Updated**: May 31, 2026  
 **Status**: 🟢 Development Phase - Core features complete, ready for testing
+# bethesda-track
 # bethesda-track
 # bethesda-track
