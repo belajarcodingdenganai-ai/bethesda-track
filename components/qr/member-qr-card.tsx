@@ -79,7 +79,7 @@ export default function MemberQrCard({ name, registrationNo, qrCode, roleLabel }
 
       ctx.fillStyle = '#a1a1aa';
       ctx.font = '600 18px Arial';
-      ctx.fillText('Bethesda Track', width / 2, 926);
+      ctx.fillText('Rumah Bethesda', width / 2, 926);
 
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
@@ -93,6 +93,7 @@ export default function MemberQrCard({ name, registrationNo, qrCode, roleLabel }
   return (
     <div className="rounded-[24px] border-2 border-dashed border-indigo-500/20 bg-indigo-50/40 p-5 dark:bg-indigo-500/5">
       <div className="flex flex-col items-center text-center">
+        <img src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" className="mb-3 h-12 w-12 rounded-full bg-white object-cover shadow-sm ring-1 ring-blue-100" />
         <div className="mb-4 flex items-center gap-2 text-indigo-600">
           <QrCode size={18} />
           <span className="text-[10px] font-black uppercase tracking-[0.22em]">QR Code</span>

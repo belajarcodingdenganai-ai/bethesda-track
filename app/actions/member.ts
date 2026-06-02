@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { Prisma, ProgramType } from '@prisma/client';
+import { THERAPIST_NAMES } from '@/lib/therapy-options';
 
 const PROGRAM_LABELS: Record<ProgramType, string> = {
   ABA: 'Applied Behavior Analysis',
@@ -109,6 +110,7 @@ export async function createStudent(formData: FormData) {
       const age = parseInt((formData.get('age') as string) || '', 10);
       const address = getOptionalFormString(formData, 'address');
       const diagnosis = getOptionalFormString(formData, 'diagnosis');
+      const profileImage = getOptionalFormString(formData, 'profileImage');
       const programsRaw = getOptionalFormString(formData, 'programs'); // "ABA, SI"
       const frequency = parseInt(formData.get('frequency') as string) || 0;
 
@@ -127,6 +129,7 @@ export async function createStudent(formData: FormData) {
           gender,
           address,
           diagnosis,
+          profileImage,
           qrCode: `STU-${registrationNo}`, // Format: STU-BETH-001
           status: 'ACTIVE',
         },
@@ -166,6 +169,8 @@ export async function createStudent(formData: FormData) {
       }
 
       revalidatePath('/students');
+      revalidatePath('/');
+      revalidatePath('/sessions');
       return { success: true, data: student };
     });
   } catch (error: any) {
@@ -184,6 +189,7 @@ export async function updateStudent(id: string, formData: FormData) {
     const age = parseInt((formData.get('age') as string) || '', 10);
     const address = getOptionalFormString(formData, 'address');
     const diagnosis = getOptionalFormString(formData, 'diagnosis');
+    const profileImage = getOptionalFormString(formData, 'profileImage');
 
     if (!name) throw new Error('Nama siswa wajib diisi.');
 
@@ -199,10 +205,14 @@ export async function updateStudent(id: string, formData: FormData) {
         age: Number.isFinite(age) ? age : null,
         address,
         diagnosis,
+        profileImage,
       },
     });
 
     revalidatePath('/students');
+    revalidatePath('/');
+    revalidatePath('/sessions');
+    revalidatePath(`/students/${id}`);
     return { success: true, data: student };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };
@@ -216,6 +226,8 @@ export async function deleteStudent(id: string) {
     });
 
     revalidatePath('/students');
+    revalidatePath('/');
+    revalidatePath('/sessions');
     return { success: true };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };
@@ -248,9 +260,12 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
     const programName = formData.get('programs') as string;
     const frequency = parseInt(formData.get('frequency') as string) || 0;
     const totalSessions = parseInt(formData.get('totalSessions') as string) || (frequency * 4);
-    const endDate = formData.get('endDate') ? new Date(formData.get('endDate') as string) : null;
+    const therapistName = getOptionalFormString(formData, 'therapistId');
+    const scheduleTime = getOptionalFormString(formData, 'scheduleTime');
 
     if (!programName || frequency <= 0) throw new Error('Data paket tidak lengkap.');
+    if (!therapistName) throw new Error('Terapis wajib dipilih.');
+    if (!scheduleTime) throw new Error('Jadwal sesi wajib dipilih.');
 
     return await prisma.$transaction(async (tx) => {
       const program = await getOrCreateProgram(tx, programName);
@@ -282,12 +297,15 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
           frequency,
           totalSessions,
           usedSessions: 0,
-          endDate,
+          therapistName,
+          scheduleTime,
           status: 'ACTIVE',
         }
       });
 
       revalidatePath('/students');
+      revalidatePath('/');
+      revalidatePath('/sessions');
       return { success: true, data: newPackage };
     });
   } catch (error: any) {
@@ -366,8 +384,64 @@ export async function createTeacher(formData: FormData) {
       });
 
       revalidatePath('/teachers');
+      revalidatePath('/');
+      revalidatePath('/teacher-scanner');
+      revalidatePath('/reports');
       return { success: true, data: teacher };
     });
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
+  }
+}
+
+export async function syncDefaultTherapists() {
+  try {
+    const teachers = [];
+
+    for (const [index, name] of THERAPIST_NAMES.entries()) {
+      const teacherId = `TCH-${String(index + 1).padStart(3, '0')}`;
+      const emailName = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/(^\.|\.$)/g, '');
+      const email = `${emailName}@bethesda.com`;
+
+      const user = await prisma.user.upsert({
+        where: { email },
+        update: {
+          name,
+          role: 'TEACHER',
+        },
+        create: {
+          email,
+          name,
+          role: 'TEACHER',
+        },
+      });
+
+      const teacher = await prisma.teacher.upsert({
+        where: { teacherId },
+        update: {
+          userId: user.id,
+          division: 'Terapis',
+          position: 'Terapis',
+          qrCode: `TEACHER-${teacherId}`,
+        },
+        create: {
+          userId: user.id,
+          teacherId,
+          division: 'Terapis',
+          position: 'Terapis',
+          qrCode: `TEACHER-${teacherId}`,
+        },
+        include: { user: true },
+      });
+
+      teachers.push(teacher);
+    }
+
+    revalidatePath('/teachers');
+    revalidatePath('/');
+    revalidatePath('/teacher-scanner');
+    revalidatePath('/reports');
+    return { success: true, data: teachers };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };
   }
@@ -410,6 +484,9 @@ export async function updateTeacher(id: string, formData: FormData) {
       });
 
       revalidatePath('/teachers');
+      revalidatePath('/');
+      revalidatePath('/teacher-scanner');
+      revalidatePath('/reports');
       return { success: true, data: teacher };
     });
   } catch (error: any) {
@@ -433,6 +510,9 @@ export async function deleteTeacher(id: string) {
     });
 
     revalidatePath('/teachers');
+    revalidatePath('/');
+    revalidatePath('/teacher-scanner');
+    revalidatePath('/reports');
     return { success: true };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };

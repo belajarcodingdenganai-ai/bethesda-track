@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     // Build filter object
@@ -59,18 +61,18 @@ export async function GET(request: Request) {
 
       // Get therapist name from latest attendance
       const latestAttendance = student.attendances[0];
-      const therapistName = latestAttendance?.teacher?.user?.name || "Belum ada terapis";
+      const therapistName = activePackage?.therapistName || latestAttendance?.teacher?.user?.name || "Belum ada terapis";
 
       // Get primary program
       const primaryProgram = activePackage?.program?.name || student.programs[0]?.program?.name || "Belum ada program";
 
       // Get schedule from latest attendance
-      const schedule = latestAttendance?.checkIn
+      const schedule = activePackage?.scheduleTime || (latestAttendance?.checkIn
         ? new Date(latestAttendance.checkIn).toLocaleTimeString("id-ID", {
             hour: "2-digit",
             minute: "2-digit",
           })
-        : "Belum ada jadwal";
+        : "Belum ada jadwal");
 
       // Determine status
       let packageStatus = "belum-paket";
@@ -106,7 +108,11 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(transformedStudents);
+    return NextResponse.json(transformedStudents, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     console.error("Error fetching sessions:", error);
     return NextResponse.json(

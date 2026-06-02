@@ -1,4 +1,4 @@
-# TherapyOS - Therapy Attendance & Session Tracking System
+# Rumah Bethesda Terapi - Therapy Attendance & Session Tracking System
 
 A modern, enterprise-grade web application for managing therapy centers, ABA programs, and special education schools. Built with Next.js 14, PostgreSQL, and Prisma.
 

@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.bethesda.track',
-  appName: 'Bethesda Track',
+  appName: 'Rumah Bethesda',
   webDir: 'out',
   server: {
     // Menggunakan IP asli laptop Anda agar HP Android bisa terkoneksi

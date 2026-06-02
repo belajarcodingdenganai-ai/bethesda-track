@@ -229,6 +229,8 @@ model TherapyPackage {
   frequency       Int           // 2 = 2x per week, 3 = 3x per week
   totalSessions   Int
   usedSessions    Int           @default(0)
+  therapistName   String?
+  scheduleTime    String?
   
   // Status tracking
   status          PackageStatus @default(ACTIVE)

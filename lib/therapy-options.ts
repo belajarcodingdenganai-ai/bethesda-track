@@ -1,0 +1,27 @@
+export const THERAPIST_NAMES = [
+  'SUKARDIN MENDROFA',
+  'NOVERA DINI',
+  'WASTI',
+  'HANA LAZHARUS',
+  'ROSIN ROBO',
+  'ESTER WARUWU',
+  'MAUDY LINTJEWAS',
+  'MARGARETHA OLIVIA',
+  'PUTRA MENDROFA',
+  'MEGA UTAMI',
+  'IRVANUS',
+  'RAMARUDI',
+  'NENI',
+  'ARIANUS',
+  'FARISMAN',
+];
+
+export const THERAPY_SCHEDULES = [
+  '08:00-12:00',
+  '13:00-14:00',
+  '13:00-15:00',
+  '14:00-15:00',
+  '14:00-16:00',
+  '15:00-16:00',
+  '15:00-17:00',
+];

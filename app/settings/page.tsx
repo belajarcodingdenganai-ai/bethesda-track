@@ -108,11 +108,11 @@ export default function SettingsPage() {
         <div className="flex-1 space-y-8">
           {activeTab === 'general' && (
             <div className="space-y-6">
-              <SectionHeader title="Pengaturan Umum" description="Konfigurasi dasar aplikasi BethesdaTrack." />
+              <SectionHeader title="Pengaturan Umum" description="Konfigurasi dasar aplikasi Rumah Bethesda." />
               <div className="grid gap-4">
                 <SettingsCard
                   title="Nama Institusi"
-                  value="Bethesda Special School"
+                  value="Rumah Bethesda"
                   icon={<Globe size={20} />}
                 />
                 <SettingsCard
@@ -231,7 +231,7 @@ export default function SettingsPage() {
                     <BrandMarkWhite />
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-3xl font-black tracking-tight mb-2">TherapyOS Enterprise</h3>
+                    <h3 className="text-3xl font-black tracking-tight mb-2">Rumah Bethesda</h3>
                     <p className="text-zinc-400 font-medium mb-6">Versi 0.1.1 Production-Ready</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                       <StatMini label="Database" value="Postgres" />

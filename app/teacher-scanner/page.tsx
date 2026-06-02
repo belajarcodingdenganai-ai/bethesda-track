@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { processTeacherAttendance } from '@/app/actions/attendance';
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  ArrowLeft,
   Camera,
   CheckCircle2,
   Clock,
@@ -15,6 +15,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import Image from 'next/image';
+import Link from 'next/link';
 
 type TeacherScanResult = {
   success: true;
@@ -57,7 +59,16 @@ export default function TeacherScannerPage() {
         // Browser may block audio until user interaction.
       }
 
-      const result = await processTeacherAttendance(decodedText.trim());
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          qrCode: decodedText.trim(),
+          mode: 'teacher',
+        }),
+      });
+      const result = await response.json();
       if (!result.success) {
         const failedResult = result as FailedTeacherScanResult;
         setErrorResult(failedResult.error || 'QR guru tidak valid');
@@ -171,11 +182,21 @@ export default function TeacherScannerPage() {
       <div id="teacher-file-reader" className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden" />
 
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-xl flex-col justify-center space-y-6">
+        <div className="flex">
+          <Link
+            href="/teachers"
+            className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-700 shadow-sm transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ArrowLeft size={16} />
+            Kembali
+          </Link>
+        </div>
+
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">
-            <ShieldCheck size={24} strokeWidth={2.5} />
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-sky-100 shadow-lg shadow-indigo-500/20 ring-1 ring-sky-200">
+            <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={80} height={80} className="h-full w-full object-cover" priority />
           </div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Absensi Kedatangan Guru</h1>
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">BethScan</h1>
           <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
             Scan QR guru untuk mencatat jam kedatangan hari ini.
           </p>

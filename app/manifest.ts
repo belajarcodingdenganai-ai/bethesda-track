@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Bethesda Track",
+    name: "Rumah Bethesda",
     short_name: "Bethesda",
-    description: "Portal kehadiran guru, siswa, dan sesi terapi Bethesda Special School.",
+    description: "Portal kehadiran guru, siswa, dan sesi Rumah Bethesda.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -14,15 +14,15 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["education", "productivity"],
     icons: [
       {
-        src: "/icons/bethesda-icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icons/bethesda-icon.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/bethesda-maskable.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icons/bethesda-maskable.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash, Activity } from 'lucide-react';
+import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash, Activity, ImageUp, Move, ZoomIn } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ interface Student {
   dateOfBirth?: string;
   address?: string;
   diagnosis?: string;
+  profileImage?: string;
   status: string;
   parentPhone?: string;
   qrCode: string;
@@ -44,6 +45,9 @@ export default function StudentsPage() {
   const [dob, setDob] = useState('');
   const [ageDisplay, setAgeDisplay] = useState('');
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [avatarX, setAvatarX] = useState(0);
+  const [avatarY, setAvatarY] = useState(0);
+  const [avatarZoom, setAvatarZoom] = useState(1);
   const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
   const [frequency, setFrequency] = useState(0);
   const [sessions, setSessions] = useState(0);
@@ -71,7 +75,7 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/students');
+      const response = await fetch('/api/students', { cache: 'no-store' });
       const data = await response.json();
       // Memastikan data adalah array untuk mencegah error .filter
       setStudents(Array.isArray(data) ? data : (data.data || []));
@@ -204,7 +208,54 @@ export default function StudentsPage() {
     if (file) {
       const url = URL.createObjectURL(file);
       setProfilePreview(url);
+      setAvatarX(0);
+      setAvatarY(0);
+      setAvatarZoom(1);
     }
+  };
+
+  const renderAvatar = (src: string) => (
+    <img
+      src={src}
+      alt="Avatar siswa"
+      className="h-full w-full object-cover"
+      style={{
+        transform: `translate(${avatarX}%, ${avatarY}%) scale(${avatarZoom})`,
+        transformOrigin: 'center',
+      }}
+    />
+  );
+
+  const buildAvatarImage = async () => {
+    if (!profilePreview) return selectedStudent?.profileImage || null;
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = profilePreview;
+    });
+
+    const size = 384;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return selectedStudent?.profileImage || null;
+
+    const baseScale = Math.max(size / image.width, size / image.height);
+    const scale = baseScale * avatarZoom;
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const maxOffsetX = Math.max((drawWidth - size) / 2, 0);
+    const maxOffsetY = Math.max((drawHeight - size) / 2, 0);
+    const x = (size - drawWidth) / 2 + (avatarX / 50) * maxOffsetX;
+    const y = (size - drawHeight) / 2 + (avatarY / 50) * maxOffsetY;
+
+    ctx.fillStyle = '#eef2ff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    return canvas.toDataURL('image/jpeg', 0.86);
   };
 
   const handleOpenModal = (mode: 'add' | 'edit' | 'view', student: Student | null = null) => {
@@ -213,6 +264,9 @@ export default function StudentsPage() {
     setDob('');
     setAgeDisplay('');
     setProfilePreview(null);
+    setAvatarX(0);
+    setAvatarY(0);
+    setAvatarZoom(1);
     setSelectedPrograms([]);
     setFrequency(0);
     setSessions(0);
@@ -231,6 +285,7 @@ export default function StudentsPage() {
 
     if (student?.dateOfBirth) setDob(format(new Date(student.dateOfBirth), 'yyyy-MM-dd'));
     if (student?.diagnosis) setSelectedDiag(student.diagnosis.split(', '));
+    if (student?.profileImage) setProfilePreview(student.profileImage);
     setModalMode(mode);
   };
 
@@ -243,6 +298,8 @@ export default function StudentsPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const avatarImage = await buildAvatarImage();
+    if (avatarImage) formData.set('profileImage', avatarImage);
     setFormDraft(Object.fromEntries(formData.entries()) as Record<string, string>);
     setIsSubmitting(true);
     
@@ -395,6 +452,52 @@ export default function StudentsPage() {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950/40">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Avatar Anak</p>
+                          <p className="text-xs font-bold text-zinc-500">Foto ini tampil di sesi terapi dan laporan orang tua.</p>
+                        </div>
+                        {modalMode !== 'view' && (
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="rounded-2xl bg-indigo-600 p-3 text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700"
+                          >
+                            <ImageUp size={18} />
+                          </button>
+                        )}
+                      </div>
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                      <input type="hidden" name="profileImage" value={selectedStudent?.profileImage || ''} />
+                      <div className="mx-auto mt-5 h-36 w-36 overflow-hidden rounded-[32px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl">
+                        {profilePreview ? renderAvatar(profilePreview) : (
+                          <div className="flex h-full w-full items-center justify-center text-5xl font-black">
+                            {(formDraft.name || selectedStudent?.name || 'S').charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      {modalMode !== 'view' && profilePreview && (
+                        <div className="mt-5 space-y-4">
+                          <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <ZoomIn size={14} />
+                            Zoom
+                            <input type="range" min="1" max="2.4" step="0.05" value={avatarZoom} onChange={(e) => setAvatarZoom(Number(e.target.value))} className="min-w-0 flex-1" />
+                          </label>
+                          <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <Move size={14} />
+                            Kiri/Kanan
+                            <input type="range" min="-50" max="50" step="1" value={avatarX} onChange={(e) => setAvatarX(Number(e.target.value))} className="min-w-0 flex-1" />
+                          </label>
+                          <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <Move size={14} />
+                            Atas/Bawah
+                            <input type="range" min="-50" max="50" step="1" value={avatarY} onChange={(e) => setAvatarY(Number(e.target.value))} className="min-w-0 flex-1" />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-5 dark:border-indigo-900/40 dark:bg-indigo-950/20">
                       <div className="flex items-center gap-3">
                         <div className="rounded-2xl bg-indigo-600 p-3 text-white">
@@ -536,7 +639,7 @@ export default function StudentsPage() {
       </div>
 
       {/* Students Table */}
-      <div className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md rounded-3xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xl shadow-zinc-200/20 dark:shadow-none">
+      <div className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md rounded-3xl border border-zinc-200 dark:border-zinc-800 mobile-scroll-x shadow-xl shadow-zinc-200/20 dark:shadow-none">
         {loading ? (
           <div className="p-24 text-center">
             <div className="inline-block w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin mb-4" />
@@ -560,8 +663,19 @@ export default function StudentsPage() {
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="group hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all duration-300">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors">{student.name}</div>
-                      <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{student.nickname || 'Tanpa Panggilan'}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm">
+                          {student.profileImage ? (
+                            <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center font-black">{student.name.charAt(0)}</div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors">{student.name}</div>
+                          <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{student.nickname || 'Tanpa Panggilan'}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs text-zinc-500">{student.registrationNo}</td>
                     <td className="px-6 py-4">{student.age || '-'}</td>
@@ -694,7 +808,15 @@ export default function StudentsPage() {
                   {portalActiveStudents.map((student) => (
                     <div key={student.id} className="p-5 rounded-3xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/50">
                       <div className="flex items-start justify-between gap-4">
-                        <div>
+                        <div className="flex items-start gap-3">
+                          <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm">
+                            {student.profileImage ? (
+                              <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center font-black">{student.name.charAt(0)}</div>
+                            )}
+                          </div>
+                          <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-black text-lg tracking-tight text-zinc-900 dark:text-zinc-100">{student.name}</h3>
                             <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-black uppercase">
@@ -702,6 +824,7 @@ export default function StudentsPage() {
                             </span>
                           </div>
                           <p className="text-xs font-mono text-zinc-400 mt-1">{student.registrationNo}</p>
+                          </div>
                         </div>
                         <button
                           onClick={() => copyParentPortalLink(student)}

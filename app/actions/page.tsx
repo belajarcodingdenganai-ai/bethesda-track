@@ -7,6 +7,7 @@ import { getTherapyPackages, addTherapyPackage } from '@/app/actions/member';
 import { getAttendanceHistory } from '@/app/actions/attendance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '@/lib/therapy-options';
 
 export default function TherapyPackagesPage() {
   const [packages, setPackages] = useState<any[]>([]);
@@ -27,7 +28,7 @@ export default function TherapyPackagesPage() {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('/api/students');
+      const response = await fetch('/api/students', { cache: 'no-store' });
       const data = await response.json();
       setStudentList(Array.isArray(data) ? data : (data.data || []));
     } catch (error) {
@@ -276,7 +277,7 @@ export default function TherapyPackagesPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest border-b border-zinc-100 pb-2">Riwayat Kehadiran</h3>
+                <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest border-b border-zinc-100 pb-2">Riwayat Scan Anak</h3>
                 <div className="space-y-3">
                   {attendanceHistory.length > 0 ? (
                     attendanceHistory.map((att: any) => (
@@ -338,13 +339,28 @@ export default function TherapyPackagesPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Berakhir Pada (Opsional)</label>
-                    <input type="date" name="endDate" className="form-input-pro" />
+                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Terapis</label>
+                    <select name="therapistId" required className="form-input-pro">
+                      <option value="">Pilih Terapis...</option>
+                      {THERAPIST_NAMES.map((therapist) => (
+                        <option key={therapist} value={therapist}>{therapist}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Jadwal Sesi</label>
+                  <select name="scheduleTime" required className="form-input-pro">
+                    <option value="">Pilih Jam...</option>
+                    {THERAPY_SCHEDULES.map((schedule) => (
+                      <option key={schedule} value={schedule}>{schedule}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Frekuensi Terapi</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Frekuensi Terapi per Minggu</label>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map(val => (
                       <button 
@@ -359,7 +375,7 @@ export default function TherapyPackagesPage() {
                   </div>
                   <input type="hidden" name="frequency" value={frequency} />
                   {frequency > 0 && (
-                    <p className="text-[10px] font-bold text-zinc-400 italic ml-4">Otomatis: {frequency * 4} sesi / bulan</p>
+                    <p className="text-[10px] font-bold text-zinc-400 italic ml-4">Otomatis: {frequency}x/minggu, {frequency * 4} sesi/bulan</p>
                   )}
                 </div>
               </form>

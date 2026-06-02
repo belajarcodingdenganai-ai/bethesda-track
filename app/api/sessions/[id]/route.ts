@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -19,16 +21,20 @@ export async function GET(
           include: {
             user: true,
           },
-        },
-        program: true,
-        package: true,
-      },
+            },
+            program: true,
+            package: true,
+          },
       orderBy: {
         checkIn: "desc",
       },
     });
 
-    return NextResponse.json(attendances);
+    return NextResponse.json(attendances, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     console.error("Error fetching session history:", error);
     return NextResponse.json(

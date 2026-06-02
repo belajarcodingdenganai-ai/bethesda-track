@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { addTherapyPackage } from "@/app/actions/member";
+import { THERAPIST_NAMES, THERAPY_SCHEDULES } from "@/lib/therapy-options";
 import {
   Search,
   Plus,
@@ -104,7 +105,7 @@ const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange
     {
       label: "Jam",
       key: "time",
-      options: ["Semua Jam", "08:00-12:00", "13:00-14:00", "13:00-15:00", "14:00-15:00", "14:00-16:00", "15:00-16:00", "15:00-17:00"],
+      options: ["Semua Jam", ...THERAPY_SCHEDULES],
     },
     {
       label: "Program",
@@ -114,7 +115,7 @@ const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange
     {
       label: "Terapis",
       key: "therapist",
-      options: ["Semua Terapis", "Maria", "Samuel", "Yohanes"],
+      options: ["Semua Terapis", ...THERAPIST_NAMES],
     },
     {
       label: "Status",
@@ -284,7 +285,7 @@ const SessionsTable = ({
     setLoadingHistory(true);
     
     try {
-      const response = await fetch(`/api/sessions/${student.id}`);
+      const response = await fetch(`/api/sessions/${student.id}`, { cache: "no-store" });
       const data = await response.json();
       setSessionHistory(data);
     } catch (error) {
@@ -314,7 +315,7 @@ const SessionsTable = ({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm shadow-sm">
+      <div className="mobile-scroll-x rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm shadow-sm">
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-200/50 dark:border-zinc-800/50">
@@ -701,22 +702,28 @@ export default function SessionsPage() {
     status: "Semua Status",
   });
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (silent = false) => {
     try {
-      setLoading(true);
-      const response = await fetch("/api/sessions");
+      if (!silent) setLoading(true);
+      const response = await fetch("/api/sessions", { cache: "no-store" });
       const data = await response.json();
       setStudents(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching students:", error);
       toast.error("Gagal memuat data sesi");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchStudents();
+
+    const interval = setInterval(() => {
+      fetchStudents(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleFilterChange = (key: string, value: string) => {
@@ -949,17 +956,40 @@ export default function SessionsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Tanggal Berakhir</label>
-                  <input
-                    type="date"
-                    name="endDate"
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Terapis</label>
+                  <select
+                    name="therapistId"
+                    required
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  >
+                    <option value="">Pilih terapis...</option>
+                    {THERAPIST_NAMES.map((therapist) => (
+                      <option key={therapist} value={therapist}>
+                        {therapist}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Jadwal Sesi</label>
+                <select
+                  name="scheduleTime"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Pilih jadwal...</option>
+                  {THERAPY_SCHEDULES.map((schedule) => (
+                    <option key={schedule} value={schedule}>
+                      {schedule}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Frekuensi Terapi</label>
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Frekuensi Terapi per Minggu</label>
                 <div className="grid grid-cols-5 gap-2">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
@@ -979,7 +1009,7 @@ export default function SessionsPage() {
                 <input type="hidden" name="frequency" value={frequency} />
                 {frequency > 0 && (
                   <p className="text-sm text-zinc-500">
-                    Otomatis membuat {frequency * 4} sesi per bulan.
+                    Otomatis membuat {frequency}x per minggu, {frequency * 4} sesi per bulan.
                   </p>
                 )}
               </div>

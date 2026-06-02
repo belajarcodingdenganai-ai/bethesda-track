@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
+import { revalidatePath } from 'next/cache';
+
+export const dynamic = 'force-dynamic';
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+};
 
 async function getNextTeacherRegistrationNo() {
   const teachers = await prisma.teacher.findMany({
@@ -33,21 +40,20 @@ export async function GET(request: NextRequest) {
           take: 5,
         },
       },
-      orderBy: { userId: 'asc' },
+      orderBy: { teacherId: 'asc' },
     });
 
-    return NextResponse.json({
-      data: teachers.map((t) => ({
-        ...t,
-        name: t.user?.name,
-        latestAttendance: t.attendanceLogs[0] || null,
-      })),
-      total: teachers.length,
-    }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
-      }
-    });
+    return NextResponse.json(
+      {
+        data: teachers.map((t) => ({
+          ...t,
+          name: t.user?.name,
+          latestAttendance: t.attendanceLogs[0] || null,
+        })),
+        total: teachers.length,
+      },
+      { headers: noStoreHeaders },
+    );
   } catch (error) {
     console.error('Error fetching teachers:', error);
     return prismaErrorResponse(error, 'Failed to fetch teachers');
@@ -76,7 +82,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(teacher, { status: 201 });
+    revalidatePath('/');
+    revalidatePath('/teachers');
+    revalidatePath('/teacher-scanner');
+    revalidatePath('/reports');
+
+    return NextResponse.json(teacher, { status: 201, headers: noStoreHeaders });
   } catch (error: any) {
     console.error('Error creating teacher:', error);
     if (error.code === 'P2002') {

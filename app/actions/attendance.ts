@@ -142,6 +142,8 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
 
         revalidatePath('/');
         revalidatePath('/teachers');
+        revalidatePath('/teacher-scanner');
+        revalidatePath('/reports');
         return {
           success: true,
           name: teacherName,
@@ -201,6 +203,10 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
         });
 
         revalidatePath('/');
+        revalidatePath('/sessions');
+        revalidatePath('/students');
+        revalidatePath(`/students/${student.id}`);
+        revalidatePath('/reports');
         return {
           success: true,
           name: student.name,
@@ -274,6 +280,10 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
       }
 
       revalidatePath('/');
+      revalidatePath('/sessions');
+      revalidatePath('/students');
+      revalidatePath(`/students/${student.id}`);
+      revalidatePath('/reports');
       return {
         success: true,
         name: student.name,
@@ -361,6 +371,8 @@ export async function processTeacherAttendance(rawQrCode: string) {
 
       revalidatePath('/');
       revalidatePath('/teachers');
+      revalidatePath('/teacher-scanner');
+      revalidatePath('/reports');
 
       return {
         success: true,
@@ -537,9 +549,16 @@ export async function markNotificationRead(id: string) {
 
 export async function getAttendanceHistory(packageId: string) {
   try {
+    const therapyPackage = await prisma.therapyPackage.findUnique({
+      where: { id: packageId },
+      select: { studentId: true },
+    });
+
     const attendances = await prisma.attendance.findMany({
-      where: { packageId },
+      where: therapyPackage ? { studentId: therapyPackage.studentId } : { packageId },
       include: {
+        program: true,
+        package: true,
         teacher: {
           include: {
             user: { select: { name: true } }

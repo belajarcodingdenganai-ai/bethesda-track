@@ -8,14 +8,11 @@ import { getTherapyPackages, addTherapyPackage } from '@/app/actions/member';
 import { getAttendanceHistory, getDashboardStats } from '@/app/actions/attendance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '@/lib/therapy-options';
 
 // Data statis untuk filter (Dapat dipindahkan ke file konfigurasi atau DB)
-const THERAPISTS = ['Maria', 'Samuel', 'Yohanes'];
-const SCHEDULES = [
-  '08:00-09:00', '09:00-10:00', '10:00-11:00', '11:00-12:00',
-  '13:00-14:00', '13:00-15:00', '14:00-15:00', '14:00-16:00', 
-  '15:00-16:00', '15:00-17:00'
-];
+const THERAPISTS = THERAPIST_NAMES;
+const SCHEDULES = THERAPY_SCHEDULES;
 const SESSION_RANGES = ['Semua Sesi', '0 sesi', '1-5 sesi', '6-10 sesi', '11-20 sesi', '21-50 sesi', '50+ sesi'];
 
 export default function DashboardPage() {
@@ -43,11 +40,19 @@ export default function DashboardPage() {
     fetchDashboard();
     fetchPackages();
     fetchStudents();
+
+    const interval = setInterval(() => {
+      fetchDashboard(true);
+      fetchPackages(true);
+      fetchStudents();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const result = await getDashboardStats();
       if (result.success) {
         setStats(result.data);
@@ -55,13 +60,13 @@ export default function DashboardPage() {
     } catch (error) {
       toast.error('Gagal memuat statistik dashboard');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('/api/students');
+      const response = await fetch('/api/students', { cache: 'no-store' });
       const data = await response.json();
       setStudentList(Array.isArray(data) ? data : (data.data || []));
     } catch (error) {
@@ -69,15 +74,15 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchPackages = async () => {
+  const fetchPackages = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const result = await getTherapyPackages();
       if (result.success) setPackages(result.data);
     } catch (error) {
       toast.error('Gagal memuat data sesi');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -101,6 +106,14 @@ export default function DashboardPage() {
 
     return matchesSearch && matchesStatus && matchesProgram && matchesTherapist && matchesSchedule && matchesRange;
   });
+
+  const warningPackages = packages.filter(p => p.status === 'WARNING');
+  const completedPackages = packages.filter(p => p.status === 'COMPLETED');
+  const activePackages = packages.filter(p => p.status === 'ACTIVE');
+  const activeFilters = [programFilter, statusFilter, therapistFilter, scheduleFilter, sessionRangeFilter].filter((value, index) => {
+    const defaults = ['Semua Program', 'ALL', 'Semua Terapis', 'Semua Jadwal', 'Semua Sesi'];
+    return value !== defaults[index];
+  }).length + (searchQuery ? 1 : 0);
 
   const exportToExcel = async () => {
     try {
@@ -131,7 +144,7 @@ export default function DashboardPage() {
       const { jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF();
-      doc.text('Laporan Sesi Terapi - Bethesda Special School', 14, 15);
+      doc.text('Laporan Sesi - Rumah Bethesda', 14, 15);
       const tableData = filteredPackages.map(pkg => [pkg.student.name, pkg.program.name, pkg.therapistName || '-', `${pkg.usedSessions}/${pkg.totalSessions}`, pkg.totalSessions - pkg.usedSessions, pkg.status]);
       autoTable(doc, { head: [['Nama', 'Program', 'Terapis', 'Progress', 'Sisa', 'Status']], body: tableData, startY: 25, theme: 'grid', headStyles: { fillColor: [79, 70, 229] } });
       doc.save('therapy-report.pdf');
@@ -170,39 +183,85 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-5xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-600 dark:from-white dark:to-zinc-400">
-            Therapy<span className="text-indigo-600">OS</span>
-          </h1>
-          <p className="text-zinc-500 text-lg font-medium italic mt-2">Enterprise Session Tracking & Management.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-3xl border border-zinc-200 dark:border-zinc-800">
-            <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest">
-              <FileSpreadsheet size={14} className="text-emerald-600" /> Excel
+      <div className="rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-xl shadow-zinc-200/60 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-900/75 dark:shadow-black/20 sm:p-7 lg:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4 sm:gap-5">
+            <img src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" className="h-14 w-14 shrink-0 rounded-full bg-white object-cover shadow-lg ring-1 ring-blue-100 sm:h-16 sm:w-16" />
+            <div className="min-w-0">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-600">Dashboard Operasional</p>
+              <h1 className="text-3xl font-black leading-tight tracking-tight text-zinc-950 dark:text-white sm:text-4xl lg:text-5xl">
+                Rumah Bethesda
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-zinc-500 sm:text-base">
+                Pantau sesi anak, scan QR, jadwal terapis, dan laporan harian dengan tampilan yang mudah dibaca.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+            <Link href="/scanner" className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-zinc-950 px-4 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-zinc-800 active:scale-95 dark:bg-white dark:text-zinc-950">
+              <QrCode size={17} /> Scan
+            </Link>
+            <button onClick={() => setIsAddingSession(true)} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 hover:bg-blue-700 active:scale-95">
+              <Plus size={17} strokeWidth={3} /> Sesi
             </button>
-            <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white dark:hover:bg-zinc-800 rounded-2xl transition-all font-bold text-[10px] uppercase tracking-widest">
-              <FilePdf size={14} className="text-rose-600" /> PDF
+            <button onClick={exportToExcel} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-zinc-700 transition-all hover:border-emerald-200 hover:text-emerald-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 sm:w-auto">
+              <FileSpreadsheet size={16} /> Excel
+            </button>
+            <button onClick={exportToPDF} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 text-xs font-black uppercase tracking-widest text-zinc-700 transition-all hover:border-rose-200 hover:text-rose-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 sm:w-auto">
+              <FilePdf size={16} /> PDF
             </button>
           </div>
-          <Link href="/scanner" className="flex items-center gap-2 px-6 py-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-3xl hover-lift font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl">
-            <QrCode size={18} /> Scan QR
-          </Link>
-          <button onClick={() => setIsAddingSession(true)} className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-3xl hover-lift shadow-2xl shadow-indigo-500/30 font-black text-xs uppercase tracking-widest transition-all active:scale-95">
-            <Plus size={18} strokeWidth={3} /> Tambah Sesi
-          </button>
+        </div>
+
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <QuickAction href="/students" label="Data Anak" description={`${stats?.totalStudents || 0} anak terdaftar`} icon={<Users size={18} />} />
+          <QuickAction href="/teachers" label="Data Guru" description={`${stats?.totalTeachers || 0} guru dan terapis`} icon={<GraduationCap size={18} />} />
+          <QuickAction href="/teacher-scanner" label="Scan Guru" description="Absensi guru cepat" icon={<QrCode size={18} />} />
+          <QuickAction href="/sessions" label="Perhatian" description={`${warningPackages.length} sesi hampir habis`} icon={<AlertCircle size={18} />} />
         </div>
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <SessionKPI label="Total Siswa Aktif" value={stats?.totalStudents || 0} icon={<Users />} />
         <SessionKPI label="Kehadiran Hari Ini" value={stats?.recentAttendance?.length || 0} icon={<Activity />} color="indigo" />
-        <SessionKPI label="Hampir Habis" value={packages.filter(p => p.status === 'WARNING').length} icon={<AlertCircle />} color="rose" />
-        <SessionKPI label="Selesai Bulan Ini" value={packages.filter(p => p.status === 'COMPLETED').length} icon={<CheckCircle2 />} color="emerald" />
+        <SessionKPI label="Hampir Habis" value={warningPackages.length} icon={<AlertCircle />} color="rose" />
+        <SessionKPI label="Selesai" value={completedPackages.length} icon={<CheckCircle2 />} color="emerald" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-[28px] border border-zinc-200/70 bg-white/80 p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black tracking-tight text-zinc-950 dark:text-white">Ringkasan Sesi</h2>
+              <p className="mt-1 text-sm font-semibold text-zinc-500">Status paket sesi yang sedang berjalan.</p>
+            </div>
+            <span className="w-fit rounded-full bg-zinc-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+              {packages.length} paket
+            </span>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <StatusSummary label="Aktif" value={activePackages.length} color="emerald" />
+            <StatusSummary label="Perlu Cek" value={warningPackages.length} color="amber" />
+            <StatusSummary label="Selesai" value={completedPackages.length} color="zinc" />
+          </div>
+        </div>
+        <div className="rounded-[28px] border border-blue-100 bg-blue-50/80 p-5 shadow-sm dark:border-blue-950/60 dark:bg-blue-950/20 sm:p-6">
+          <div className="flex h-full flex-col justify-between gap-5">
+            <div>
+              <h2 className="text-xl font-black tracking-tight text-blue-950 dark:text-blue-100">Alur Cepat</h2>
+              <p className="mt-1 text-sm font-semibold leading-6 text-blue-700/80 dark:text-blue-200/70">
+                Mulai dari scan QR, lalu cek riwayat sesi anak pada detail paket.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href="/scanner" className="rounded-2xl bg-blue-600 px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-blue-700">Scan Anak</Link>
+              <button onClick={() => setIsAddingSession(true)} className="rounded-2xl bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-blue-700 shadow-sm transition-all hover:bg-blue-50 dark:bg-zinc-900 dark:text-blue-200">Tambah</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {stats?.duplicateStudentScans?.length > 0 && (
@@ -240,18 +299,18 @@ export default function DashboardPage() {
       )}
 
       {/* Filter Panel */}
-      <div className="flex flex-col lg:flex-row gap-4 p-3 glass-card rounded-[32px]">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-zinc-200/70 bg-white/85 p-3 shadow-sm backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-900/75 lg:flex-row">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 
-            placeholder="Cari nama siswa..." 
-            className="w-full pl-12 pr-4 py-3 bg-transparent border-none outline-none font-bold text-sm"
+            placeholder="Cari nama atau nomor registrasi siswa..." 
+            className="w-full rounded-2xl bg-zinc-50 py-3 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:bg-zinc-800/70 dark:focus:bg-zinc-800"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="h-10 w-[1px] bg-zinc-200 dark:bg-zinc-800 hidden lg:block" />
-        <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-2 lg:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
           <FilterDropdown label="Program" options={['Semua Program', 'ABA', 'SI', 'SPEECH', 'OT', 'ACADEMIC']} value={programFilter} onChange={setProgramFilter} />
           <FilterDropdown label="Status" options={['ALL', 'ACTIVE', 'WARNING', 'COMPLETED']} value={statusFilter} onChange={setStatusFilter} />
           <FilterDropdown label="Terapis" options={['Semua Terapis', ...THERAPISTS]} value={therapistFilter} onChange={setTherapistFilter} />
@@ -260,8 +319,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-zinc-950 dark:text-white">Paket Sesi Anak</h2>
+          <p className="text-sm font-semibold text-zinc-500">
+            {filteredPackages.length} data tampil{activeFilters > 0 ? ` dengan ${activeFilters} filter aktif` : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="grid gap-3 md:hidden">
+        {loading ? (
+          <div className="rounded-[28px] border border-zinc-200 bg-white p-8 text-center text-xs font-black uppercase tracking-widest text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
+            Memuat data...
+          </div>
+        ) : filteredPackages.length === 0 ? (
+          <EmptySessions />
+        ) : filteredPackages.map((pkg) => (
+          <button key={pkg.id} onClick={() => openDetail(pkg)} className="rounded-[28px] border border-zinc-200 bg-white p-4 text-left shadow-sm transition-all active:scale-[0.99] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <StudentAvatar pkg={pkg} />
+                <div className="min-w-0">
+                  <p className="truncate text-base font-black text-zinc-950 dark:text-white">{pkg.student.name}</p>
+                  <p className="mt-1 truncate text-xs font-bold text-zinc-500">{pkg.program.name} · {pkg.therapistName || 'Belum ada terapis'}</p>
+                </div>
+              </div>
+              <StatusPill status={pkg.status} />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-zinc-500">
+              <div className="rounded-2xl bg-zinc-50 p-3 dark:bg-zinc-800/70">
+                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Jadwal</p>
+                <p className="mt-1 text-zinc-800 dark:text-zinc-100">{pkg.scheduleTime || '-'}</p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 p-3 dark:bg-zinc-800/70">
+                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Sisa</p>
+                <p className="mt-1 text-zinc-800 dark:text-zinc-100">{pkg.totalSessions - pkg.usedSessions} sesi</p>
+              </div>
+            </div>
+            <SessionProgress pkg={pkg} />
+          </button>
+        ))}
+      </div>
+
       {/* Main Table */}
-      <div className="glass-card rounded-[40px] overflow-hidden shadow-2xl">
+      <div className="hidden rounded-[32px] border border-zinc-200/70 bg-white/85 shadow-xl shadow-zinc-200/60 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-900/75 dark:shadow-black/20 md:block">
         <table className="w-full text-sm text-left">
           <thead className="bg-zinc-50/50 dark:bg-zinc-800/50 border-b border-zinc-200/50">
             <tr>
@@ -274,40 +377,27 @@ export default function DashboardPage() {
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
             {loading ? (
               <tr><td colSpan={4} className="p-20 text-center animate-pulse font-black uppercase text-xs tracking-widest text-zinc-400">Menyinkronkan data...</td></tr>
+            ) : filteredPackages.length === 0 ? (
+              <tr><td colSpan={4} className="p-10"><EmptySessions /></td></tr>
             ) : filteredPackages.map((pkg) => (
               <tr key={pkg.id} onClick={() => openDetail(pkg)} className="group hover:bg-white/50 dark:hover:bg-zinc-900/40 transition-all duration-500 cursor-pointer">
                 <td className="px-10 py-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 flex items-center justify-center font-black text-lg shadow-inner">
-                      {pkg.student.name.charAt(0)}
-                    </div>
+                    <StudentAvatar pkg={pkg} />
                     <div>
                       <div className="font-black text-zinc-900 dark:text-zinc-100 tracking-tight text-base">{pkg.student.name}</div>
-                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-wider">{pkg.program.name}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[9px] font-black uppercase tracking-wider">{pkg.program.name}</span>
+                        <span className="text-[10px] font-bold text-zinc-400">{pkg.therapistName || 'Belum ada terapis'}</span>
+                      </div>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-black uppercase text-zinc-400">
-                      <span>{pkg.usedSessions} / {pkg.totalSessions} Sesi</span>
-                      <span className={pkg.totalSessions - pkg.usedSessions <= 2 ? 'text-amber-600' : ''}>{pkg.totalSessions - pkg.usedSessions} Sisa</span>
-                    </div>
-                    <div className="w-40 h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden shadow-inner">
-                      <div 
-                        className={`h-full transition-all duration-1000 ${pkg.status === 'WARNING' ? 'bg-amber-500' : 'bg-indigo-600'}`}
-                        style={{ width: `${(pkg.usedSessions / pkg.totalSessions) * 100}%` }}
-                      />
-                    </div>
-                  </div>
+                  <SessionProgress pkg={pkg} compact />
                 </td>
                 <td className="px-6 py-4">
-                   <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                     pkg.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : 
-                     pkg.status === 'WARNING' ? 'bg-amber-500/10 text-amber-600' : 'bg-rose-500/10 text-rose-600'
-                   }`}>
-                     {pkg.status === 'ACTIVE' ? '🟢 Aktif' : pkg.status === 'WARNING' ? '🟡 Limit' : '🔴 Selesai'}
-                   </span>
+                  <StatusPill status={pkg.status} />
                 </td>
                 <td className="px-10 py-6 text-right">
                   <button className="p-3 bg-zinc-100 dark:bg-zinc-800 rounded-2xl group-hover:bg-zinc-900 group-hover:text-white transition-all">
@@ -365,31 +455,25 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Jadwal Sesi</label>
-                    <select name="scheduleTime" required className="form-input-pro">
-                      <option value="">Pilih Jam...</option>
-                      {SCHEDULES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Berakhir Pada (Opsional)</label>
-                    <input type="date" name="endDate" className="form-input-pro" />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Jadwal Sesi</label>
+                  <select name="scheduleTime" required className="form-input-pro">
+                    <option value="">Pilih Jam...</option>
+                    {SCHEDULES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Frekuensi Terapi</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Frekuensi Terapi per Minggu</label>
                   <div className="flex gap-2">
-                    {[4, 8, 12, 16, 20].map(val => (
+                    {[1, 2, 3, 4, 5].map(val => (
                       <button 
                         key={val} 
                         type="button"
                         onClick={() => setFrequency(val)}
                         className={`flex-1 py-4 rounded-2xl font-black text-xs transition-all ${frequency === val ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/40' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-500'}`}
                       >
-                        {val}
+                        {val}x
                       </button>
                     ))}
                   </div>
@@ -397,7 +481,7 @@ export default function DashboardPage() {
                   {frequency > 0 && (
                     <div className="flex items-center gap-2 ml-4">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <p className="text-[10px] font-bold text-zinc-400 italic">Otomatis: {frequency * 4} sesi / bulan</p>
+                      <p className="text-[10px] font-bold text-zinc-400 italic">Otomatis: {frequency}x/minggu, {frequency * 4} sesi/bulan</p>
                     </div>
                   )}
                 </div>
@@ -424,12 +508,10 @@ export default function DashboardPage() {
 
             <div className="space-y-10">
               <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-4xl shadow-2xl">
-                  {selectedPkg.student.name.charAt(0)}
-                </div>
+                <StudentAvatar pkg={selectedPkg} large />
                 <div>
                   <h2 className="text-3xl font-black tracking-tight">{selectedPkg.student.name}</h2>
-                  <p className="text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em]">{selectedPkg.program.name} Program</p>
+                  <p className="text-blue-600 font-black text-[10px] uppercase tracking-[0.2em]">{selectedPkg.program.name} Program</p>
                 </div>
               </div>
 
@@ -461,7 +543,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest border-b border-zinc-100 pb-2">Riwayat Kehadiran</h3>
+                <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest border-b border-zinc-100 pb-2">Riwayat Scan Anak</h3>
                 <div className="space-y-3">
                   {attendanceHistory.length > 0 ? (
                     attendanceHistory.map((att: any) => (
@@ -503,15 +585,112 @@ export default function DashboardPage() {
 function SessionKPI({ label, value, icon, color = 'zinc' }: any) {
   const colors: any = {
     zinc: 'text-zinc-600 bg-zinc-100',
-    indigo: 'text-indigo-600 bg-indigo-50',
+    indigo: 'text-blue-600 bg-blue-50',
     rose: 'text-rose-600 bg-rose-50',
     emerald: 'text-emerald-600 bg-emerald-50'
   };
   return (
-    <div className="p-8 glass-card rounded-[32px] hover-lift group transition-all">
-      <div className={`p-4 w-fit rounded-2xl mb-6 ${colors[color]}`}>{icon}</div>
-      <div className="text-4xl font-black tracking-tighter mb-1">{value}</div>
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{label}</p>
+    <div className="rounded-[28px] border border-zinc-200/70 bg-white/85 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900/75 sm:p-6">
+      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl sm:h-12 sm:w-12 ${colors[color]}`}>{icon}</div>
+      <div className="mb-1 text-3xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-4xl">{value}</div>
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">{label}</p>
+    </div>
+  );
+}
+
+function QuickAction({ href, label, description, icon }: any) {
+  return (
+    <Link href={href} className="group flex items-center gap-3 rounded-2xl border border-zinc-200/70 bg-white/80 p-4 transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900/70">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-all group-hover:bg-blue-600 group-hover:text-white dark:bg-blue-950/40">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-zinc-950 dark:text-white">{label}</p>
+        <p className="truncate text-xs font-semibold text-zinc-500">{description}</p>
+      </div>
+    </Link>
+  );
+}
+
+function StatusSummary({ label, value, color }: any) {
+  const colors: any = {
+    emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-200 dark:ring-emerald-900/50',
+    amber: 'bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-900/50',
+    zinc: 'bg-zinc-50 text-zinc-700 ring-zinc-100 dark:bg-zinc-800/70 dark:text-zinc-200 dark:ring-zinc-700'
+  };
+
+  return (
+    <div className={`rounded-2xl p-4 ring-1 ${colors[color]}`}>
+      <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{label}</p>
+      <p className="mt-2 text-3xl font-black tracking-tight">{value}</p>
+    </div>
+  );
+}
+
+function StudentAvatar({ pkg, large = false }: any) {
+  const image = pkg.student?.profileImage;
+  const size = large ? 'h-24 w-24 rounded-[32px] text-4xl' : 'h-12 w-12 rounded-2xl text-lg';
+
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={pkg.student.name}
+        className={`${size} shrink-0 bg-zinc-100 object-cover shadow-inner ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700`}
+      />
+    );
+  }
+
+  return (
+    <div className={`${size} flex shrink-0 items-center justify-center bg-gradient-to-br from-blue-600 to-emerald-500 font-black text-white shadow-inner`}>
+      {pkg.student.name.charAt(0)}
+    </div>
+  );
+}
+
+function SessionProgress({ pkg, compact = false }: any) {
+  const remaining = pkg.totalSessions - pkg.usedSessions;
+  const percentage = pkg.totalSessions > 0 ? Math.min(100, (pkg.usedSessions / pkg.totalSessions) * 100) : 0;
+
+  return (
+    <div className={`space-y-2 ${compact ? 'max-w-[220px]' : 'mt-4'}`}>
+      <div className="flex justify-between gap-3 text-[10px] font-black uppercase text-zinc-400">
+        <span>{pkg.usedSessions} / {pkg.totalSessions} sesi</span>
+        <span className={remaining <= 2 ? 'text-amber-600' : ''}>{remaining} sisa</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 shadow-inner dark:bg-zinc-800">
+        <div
+          className={`h-full transition-all duration-1000 ${pkg.status === 'WARNING' ? 'bg-amber-500' : pkg.status === 'COMPLETED' ? 'bg-zinc-400' : 'bg-blue-600'}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status }: any) {
+  const statusMap: any = {
+    ACTIVE: { label: 'Aktif', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+    WARNING: { label: 'Limit', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+    COMPLETED: { label: 'Selesai', className: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300' }
+  };
+  const item = statusMap[status] || { label: status, className: 'bg-zinc-500/10 text-zinc-600' };
+
+  return (
+    <span className={`whitespace-nowrap rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest ${item.className}`}>
+      {item.label}
+    </span>
+  );
+}
+
+function EmptySessions() {
+  return (
+    <div className="rounded-[28px] border border-dashed border-zinc-300 bg-zinc-50/70 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-zinc-400 shadow-sm dark:bg-zinc-800">
+        <Search size={20} />
+      </div>
+      <p className="text-base font-black text-zinc-900 dark:text-white">Data sesi tidak ditemukan</p>
+      <p className="mt-1 text-sm font-semibold text-zinc-500">Coba ubah pencarian atau filter yang aktif.</p>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { processAttendance } from "@/app/actions/attendance";
 import { toast } from "sonner";
 
 export function QRScannerView({ teacherId }: { teacherId: string }) {
@@ -21,7 +20,17 @@ export function QRScannerView({ teacherId }: { teacherId: string }) {
           if (loading) return;
           setLoading(true);
           try {
-            const res = await processAttendance(decodedText, teacherId);
+            const response = await fetch('/api/scan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store',
+              body: JSON.stringify({
+                qrCode: decodedText,
+                teacherId,
+                mode: 'all',
+              }),
+            });
+            const res = await response.json();
             if (res.success === true) {
               const successfulResult = res as any;
               if (successfulResult.role === 'TEACHER' && successfulResult.isLate) {

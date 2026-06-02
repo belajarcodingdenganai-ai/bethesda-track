@@ -13,12 +13,12 @@ import {
   Download,
   Edit2,
   GraduationCap,
-  HeartPulse,
   MessageSquare,
   ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 export default function StudentDetailPage() {
   const params = useParams();
@@ -39,6 +39,7 @@ export default function StudentDetailPage() {
       setLoading(true);
       const response = await fetch(
         `/api/students/${studentId}${parentPortal ? '?portal=parent' : ''}`,
+        { cache: 'no-store' },
       );
       if (!response.ok) throw new Error('Student not found');
       const data = await response.json();
@@ -75,7 +76,7 @@ export default function StudentDetailPage() {
   const recentAttendances = student.attendances?.slice(0, 8) || [];
   const adminWhatsAppNumber = '6285280039953';
   const adminWhatsAppMessage = encodeURIComponent(
-    `Halo Admin Bethesda Special School, saya ingin bertanya mengenai Parent Portal untuk ${student.name}.`
+    `Halo Admin Rumah Bethesda, saya ingin bertanya mengenai Parent Portal untuk ${student.name}.`
   );
   const adminWhatsAppHref = `https://wa.me/${adminWhatsAppNumber}?text=${adminWhatsAppMessage}`;
 
@@ -85,14 +86,14 @@ export default function StudentDetailPage() {
         <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
           <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <HeartPulse size={22} />
+              <div className="w-12 h-12 overflow-hidden rounded-full bg-white flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-blue-100">
+                <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={48} height={48} className="h-full w-full object-cover" priority />
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-600">
                   Parent Portal
                 </p>
-                <h1 className="text-xl font-black tracking-tight">Bethesda Special School</h1>
+                <h1 className="text-xl font-black tracking-tight">Rumah Bethesda</h1>
               </div>
             </div>
             <a
@@ -120,8 +121,12 @@ export default function StudentDetailPage() {
                       {student.nickname ? `Nama panggilan: ${student.nickname}` : student.registrationNo}
                     </p>
                   </div>
-                  <div className="w-24 h-24 rounded-[28px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center text-4xl font-black shadow-xl">
-                    {student.name?.charAt(0)}
+                  <div className="w-24 h-24 overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center text-4xl font-black shadow-xl">
+                    {student.profileImage ? (
+                      <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
+                    ) : (
+                      student.name?.charAt(0)
+                    )}
                   </div>
                 </div>
 
@@ -273,6 +278,13 @@ export default function StudentDetailPage() {
         <Link href="/students" className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
           <ArrowLeft size={20} />
         </Link>
+        <div className="h-14 w-14 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center text-2xl font-black shadow-lg">
+          {student.profileImage ? (
+            <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
+          ) : (
+            student.name?.charAt(0)
+          )}
+        </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{student.name}</h1>
           <p className="text-muted-foreground text-sm mt-1">

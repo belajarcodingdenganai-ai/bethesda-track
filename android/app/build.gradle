@@ -16,6 +16,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    flavorDimensions "app"
+    productFlavors {
+        full {
+            dimension "app"
+            applicationId "com.bethesda.track"
+        }
+        teacherScanner {
+            dimension "app"
+            applicationId "com.bethesda.teacher.scanner"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false

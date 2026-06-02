@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { prismaErrorResponse } from '@/lib/prisma-errors';
 
+export const dynamic = 'force-dynamic';
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+};
+
 function getJakartaDateRange(startDate: string | null, endDate: string | null) {
   const where: { gte?: Date; lte?: Date } = {};
 
@@ -62,24 +68,27 @@ export async function GET(request: NextRequest) {
 
     const weekdayAttendance = attendance.filter((item) => isJakartaWeekday(item.checkIn));
 
-    return NextResponse.json({
-      data: weekdayAttendance.map((item) => ({
-        id: item.id,
-        teacherDbId: item.teacherId,
-        teacherId: item.teacher.teacherId,
-        teacherName: item.teacher.user?.name || item.teacher.teacherId,
-        email: item.teacher.user?.email || '',
-        division: item.teacher.division,
-        position: item.teacher.position,
-        attendanceDate: item.attendanceDate,
-        scheduledStart: item.scheduledStart,
-        checkIn: item.checkIn,
-        isLate: item.isLate,
-        minutesLate: item.minutesLate,
-        notes: item.notes,
-      })),
-      total: weekdayAttendance.length,
-    });
+    return NextResponse.json(
+      {
+        data: weekdayAttendance.map((item) => ({
+          id: item.id,
+          teacherDbId: item.teacherId,
+          teacherId: item.teacher.teacherId,
+          teacherName: item.teacher.user?.name || item.teacher.teacherId,
+          email: item.teacher.user?.email || '',
+          division: item.teacher.division,
+          position: item.teacher.position,
+          attendanceDate: item.attendanceDate,
+          scheduledStart: item.scheduledStart,
+          checkIn: item.checkIn,
+          isLate: item.isLate,
+          minutesLate: item.minutesLate,
+          notes: item.notes,
+        })),
+        total: weekdayAttendance.length,
+      },
+      { headers: noStoreHeaders },
+    );
   } catch (error) {
     console.error('Error fetching teacher attendance:', error);
     return prismaErrorResponse(error, 'Failed to fetch teacher attendance');

@@ -10,28 +10,28 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://bethesda-track.vercel.app"),
   title: {
-    default: "Bethesda Track",
-    template: "%s | Bethesda Track",
+    default: "Rumah Bethesda",
+    template: "%s | Rumah Bethesda",
   },
-  description: "Portal kehadiran guru, siswa, dan sesi terapi Bethesda Special School.",
+  description: "Portal kehadiran guru, siswa, dan sesi Rumah Bethesda.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Bethesda Track",
+  applicationName: "Rumah Bethesda",
   appleWebApp: {
     capable: true,
-    title: "Bethesda Track",
+    title: "Rumah Bethesda",
     statusBarStyle: "default",
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
-    icon: "/icons/bethesda-icon.svg",
-    shortcut: "/icons/bethesda-icon.svg",
-    apple: "/icons/bethesda-icon.svg",
+    icon: "/icons/bethesda-icon.png",
+    shortcut: "/icons/bethesda-icon.png",
+    apple: "/icons/bethesda-icon.png",
   },
   openGraph: {
-    title: "Bethesda Track",
-    description: "Portal kehadiran guru, siswa, dan sesi terapi Bethesda Special School.",
+    title: "Rumah Bethesda",
+    description: "Portal kehadiran guru, siswa, dan sesi Rumah Bethesda.",
     type: "website",
   },
 };

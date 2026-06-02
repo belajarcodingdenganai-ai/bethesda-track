@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
+import { revalidatePath } from 'next/cache';
+
+export const dynamic = 'force-dynamic';
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+};
 
 async function getNextStudentRegistrationNo() {
   const students = await prisma.student.findMany({
@@ -42,6 +49,7 @@ export async function GET(request: NextRequest) {
           dateOfBirth: true,
           address: true,
           diagnosis: true,
+          profileImage: true,
           status: true,
           parentPhone: true,
           qrCode: true,
@@ -65,9 +73,7 @@ export async function GET(request: NextRequest) {
       limit,
       offset,
     }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
-      }
+      headers: noStoreHeaders,
     });
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -94,12 +100,17 @@ export async function POST(request: NextRequest) {
         parentEmail: null,
         school: body.school,
         diagnosis: body.diagnosis,
+        profileImage: body.profileImage,
         qrCode,
         status: body.status || 'ACTIVE',
       },
     });
 
-    return NextResponse.json(student, { status: 201 });
+    revalidatePath('/');
+    revalidatePath('/students');
+    revalidatePath('/sessions');
+
+    return NextResponse.json(student, { status: 201, headers: noStoreHeaders });
   } catch (error: any) {
     console.error('Error creating student:', error);
     if (error.code === 'P2002') {

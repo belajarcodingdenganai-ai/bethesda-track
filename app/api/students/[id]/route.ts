@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { prismaErrorResponse } from '@/lib/prisma-errors';
+import { revalidatePath } from 'next/cache';
+
+export const dynamic = 'force-dynamic';
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+};
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,6 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         nickname: true,
         gender: true,
         age: true,
+        profileImage: true,
         address: !isParentPortal,
         parentPhone: !isParentPortal,
         parentEmail: !isParentPortal,
@@ -91,9 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     return NextResponse.json(student, {
-      headers: isParentPortal
-        ? { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=45' }
-        : undefined,
+      headers: noStoreHeaders,
     });
   } catch (error) {
     console.error('Error fetching student:', error);
@@ -119,11 +125,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         parentEmail: body.parentEmail,
         school: body.school,
         diagnosis: body.diagnosis,
+        profileImage: body.profileImage,
         status: body.status,
       },
     });
 
-    return NextResponse.json(student);
+    revalidatePath('/');
+    revalidatePath('/students');
+    revalidatePath('/sessions');
+    revalidatePath(`/students/${id}`);
+
+    return NextResponse.json(student, { headers: noStoreHeaders });
   } catch (error) {
     console.error('Error updating student:', error);
     return NextResponse.json({ error: 'Failed to update student' }, { status: 500 });
@@ -137,7 +149,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
+    revalidatePath('/');
+    revalidatePath('/students');
+    revalidatePath('/sessions');
+
+    return NextResponse.json({ success: true }, { headers: noStoreHeaders });
   } catch (error) {
     console.error('Error deleting student:', error);
     return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 });

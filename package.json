@@ -11,6 +11,8 @@
     "postinstall": "prisma generate --schema ./prisma/schema.prisma",
     "seed": "npx tsx prisma/seed.ts",
     "build:android": "next build && npx cap sync",
+    "android:teacher-scanner:sync": "node scripts/sync-teacher-scanner-android.mjs",
+    "android:teacher-scanner:build": "node scripts/sync-teacher-scanner-android.mjs && cd android && ./gradlew :app:assembleTeacherScannerDebug",
     "android:dev": "npx cap sync android && npx cap open android",
     "android:open": "npx cap open android"
   },

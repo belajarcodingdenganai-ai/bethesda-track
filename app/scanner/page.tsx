@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { processAttendance } from '@/app/actions/attendance';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import Image from 'next/image';
 
 type ScanResult = {
   success: true;
@@ -65,7 +65,17 @@ export default function ScannerPage() {
           // Audio feedback is optional and may be blocked by the browser.
         }
 
-        const result = await processAttendance(decodedText.trim(), 'teacher-id-placeholder');
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            qrCode: decodedText.trim(),
+            teacherId: 'teacher-id-placeholder',
+            mode: 'all',
+          }),
+        });
+        const result = await response.json();
 
         if (result.success) {
           const successfulResult = result as ScanResult;
@@ -196,9 +206,12 @@ export default function ScannerPage() {
             <ArrowLeft size={20} />
           </Link>
           <div className="text-center">
+            <div className="mx-auto mb-2 h-12 w-12 overflow-hidden rounded-full bg-white shadow-lg ring-1 ring-blue-100">
+              <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={48} height={48} className="h-full w-full object-cover" priority />
+            </div>
             <h1 className="text-2xl font-black tracking-tighter uppercase">Terminal Kehadiran</h1>
             <p className="text-zinc-400 text-[10px] font-bold tracking-[0.3em] uppercase">
-              Bethesda Special School
+              Rumah Bethesda
             </p>
           </div>
           <div className="w-12" />

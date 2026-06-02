@@ -1,4 +1,5 @@
 import { PrismaClient, ProgramType, UserRole } from '@prisma/client';
+import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '../lib/therapy-options';
 
 const prisma = new PrismaClient();
 
@@ -18,48 +19,46 @@ async function main() {
 
   console.log('✅ Admin created:', admin.id);
 
-  // Create teachers
-  const teacher1 = await prisma.user.upsert({
-    where: { email: 'sarah@bethesda.com' },
-    update: {},
-    create: {
-      email: 'sarah@bethesda.com',
-      name: 'Sarah Johnson',
-      role: UserRole.TEACHER,
-      teacher: {
-        create: {
-          teacherId: 'TCH-0001',
-          division: 'ABA Division',
-          position: 'Senior Therapist',
-          phone: '082234567890',
-          qrCode: 'TCH-0001',
-        },
+  // Create therapists with sequential IDs and QR codes
+  const teachers = [];
+  for (const [index, name] of THERAPIST_NAMES.entries()) {
+    const teacherId = `TCH-${String(index + 1).padStart(3, '0')}`;
+    const emailName = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/(^\.|\.$)/g, '');
+    const user = await prisma.user.upsert({
+      where: { email: `${emailName}@bethesda.com` },
+      update: {
+        name,
+        role: UserRole.TEACHER,
       },
-    },
-    include: { teacher: true },
-  });
-
-  const teacher2 = await prisma.user.upsert({
-    where: { email: 'david@bethesda.com' },
-    update: {},
-    create: {
-      email: 'david@bethesda.com',
-      name: 'David Lee',
-      role: UserRole.TEACHER,
-      teacher: {
-        create: {
-          teacherId: 'TCH-0002',
-          division: 'Speech Therapy',
-          position: 'Speech Therapist',
-          phone: '081345678901',
-          qrCode: 'TCH-0002',
-        },
+      create: {
+        email: `${emailName}@bethesda.com`,
+        name,
+        role: UserRole.TEACHER,
       },
-    },
-    include: { teacher: true },
-  });
+    });
 
-  console.log('✅ Teachers created');
+    const teacher = await prisma.teacher.upsert({
+      where: { teacherId },
+      update: {
+        userId: user.id,
+        division: 'Terapis',
+        position: 'Terapis',
+        qrCode: `TEACHER-${teacherId}`,
+      },
+      create: {
+        userId: user.id,
+        teacherId,
+        division: 'Terapis',
+        position: 'Terapis',
+        qrCode: `TEACHER-${teacherId}`,
+      },
+      include: { user: true },
+    });
+
+    teachers.push(teacher);
+  }
+
+  console.log(`✅ ${teachers.length} therapists created`);
 
   // Create programs
   const programs = [];
@@ -119,7 +118,7 @@ async function main() {
         address: `Street ${i + 1}, Jakarta`,
         parentPhone: '08901234567',
         parentEmail: 'parent@bethesda.com',
-        school: 'Bethesda Special School',
+        school: 'Rumah Bethesda',
         diagnosis: ['Autism', 'Dyslexia', 'ADHD', 'Speech Delay', 'Sensory'][i % 5],
         status: 'ACTIVE',
         parentId: parent.parent?.id,
@@ -152,6 +151,8 @@ async function main() {
         frequency: 2,
         totalSessions: 8,
         usedSessions: 3,
+        therapistName: teachers[0].user.name,
+        scheduleTime: THERAPY_SCHEDULES[0],
         status: 'ACTIVE',
         startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       },
@@ -177,7 +178,7 @@ async function main() {
       await prisma.attendance.create({
         data: {
           studentId: student.id,
-          teacherId: i % 2 === 0 ? teacher1.teacher!.id : teacher2.teacher!.id,
+          teacherId: teachers[i % teachers.length].id,
           programId: programs[0].id,
           packageId: pkg.id,
           checkIn: checkInTime,
