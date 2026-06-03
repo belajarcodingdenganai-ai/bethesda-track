@@ -40,6 +40,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
             frequency: true,
             status: true,
             createdAt: true,
+            therapistName: true,
             program: {
               select: {
                 id: true,
@@ -61,6 +62,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
                 user: {
                   select: {
                     name: true,
+                    profileImage: true,
                   },
                 },
               },
@@ -86,7 +88,35 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Data portal parent tidak ditemukan.' }, { status: 404, headers: noStoreHeaders });
     }
 
-    const response = NextResponse.json({ student, syncedAt: new Date().toISOString() }, { headers: noStoreHeaders });
+    const activePackage = student.packages[0];
+    const therapist = activePackage?.therapistName
+      ? await prisma.teacher.findFirst({
+          where: { user: { name: activePackage.therapistName } },
+          select: {
+            id: true,
+            user: {
+              select: {
+                name: true,
+                profileImage: true,
+              },
+            },
+          },
+        })
+      : null;
+
+    const response = NextResponse.json({
+      student: {
+        ...student,
+        therapistProfile: therapist
+          ? {
+              id: therapist.id,
+              name: therapist.user?.name || activePackage?.therapistName,
+              profileImage: therapist.user?.profileImage,
+            }
+          : null,
+      },
+      syncedAt: new Date().toISOString(),
+    }, { headers: noStoreHeaders });
     response.cookies.set('bethesda_parent_portal', token, {
       httpOnly: true,
       sameSite: 'lax',

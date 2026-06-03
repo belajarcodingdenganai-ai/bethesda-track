@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { addTherapyPackage } from "@/app/actions/member";
+import { createManualMissingScan, deleteAttendanceRecord, updateAttendanceRecord } from "@/app/actions/attendance";
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from "@/lib/therapy-options";
 import {
   Search,
@@ -35,6 +36,7 @@ interface Student {
   progress: { used: number; total: number };
   status: string;
   lastAttended?: string;
+  package?: any;
   attendances?: any[];
 }
 
@@ -100,7 +102,15 @@ const AlertBanner = ({ students }: { students: Student[] }) => {
   );
 };
 
-const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange: (key: string, value: string) => void }) => {
+const FilterPanel = ({
+  filters,
+  onFilterChange,
+  therapistOptions,
+}: {
+  filters: any;
+  onFilterChange: (key: string, value: string) => void;
+  therapistOptions: string[];
+}) => {
   const filterGroups = [
     {
       label: "Jam",
@@ -115,7 +125,7 @@ const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange
     {
       label: "Terapis",
       key: "therapist",
-      options: ["Semua Terapis", ...THERAPIST_NAMES],
+      options: ["Semua Terapis", ...therapistOptions],
     },
     {
       label: "Status",
@@ -146,10 +156,12 @@ const FilterPanel = ({ filters, onFilterChange }: { filters: any; onFilterChange
 
 const QuickActions = ({
   onAddSession,
+  onMissingScan,
   onExportExcel,
   onExportPDF,
 }: {
   onAddSession: () => void;
+  onMissingScan: () => void;
   onExportExcel: () => void;
   onExportPDF: () => void;
 }) => {
@@ -160,6 +172,12 @@ const QuickActions = ({
         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors shadow-sm hover:shadow-md"
       >
         <Plus size={18} /> Tambah Sesi
+      </button>
+      <button
+        onClick={onMissingScan}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors shadow-sm hover:shadow-md"
+      >
+        <Calendar size={18} /> Catat Missing Scan
       </button>
       <button
         onClick={() => {
@@ -263,19 +281,45 @@ const exportHistoryToCsv = (student: Student, history: any[]) => {
   toast.success("Riwayat berhasil diekspor");
 };
 
+const getDateTimeLocalValue = (date = new Date()) => {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+};
+
+const getDateTimeLocalFromValue = (value: string | Date) => getDateTimeLocalValue(new Date(value));
+
+function normalizeTeacherNames(data: any) {
+  const teachers = Array.isArray(data) ? data : (data.data || []);
+  const names = teachers
+    .map((teacher: any) => teacher.name || teacher.user?.name)
+    .filter((name: unknown): name is string => typeof name === "string" && name.trim().length > 0)
+    .map((name: string) => name.trim());
+
+  return Array.from(new Set<string>(names)).sort((a, b) => a.localeCompare(b));
+}
+
 const SessionsTable = ({
   students,
   searchQuery,
   filters,
+  onRefresh,
+  therapistOptions,
 }: {
   students: Student[];
   searchQuery: string;
   filters: Record<string, string>;
+  onRefresh: () => Promise<void>;
+  therapistOptions: string[];
 }) => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [manualStudent, setManualStudent] = useState<Student | null>(null);
   const [sessionHistoryOpen, setSessionHistoryOpen] = useState(false);
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [manualCheckIn, setManualCheckIn] = useState(getDateTimeLocalValue);
+  const [manualTherapistName, setManualTherapistName] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
 
   const filteredStudents = filterStudents(students, searchQuery, filters);
 
@@ -291,6 +335,21 @@ const SessionsTable = ({
     } catch (error) {
       console.error("Error fetching session history:", error);
       setSessionHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const refreshSessionHistory = async () => {
+    if (!selectedStudent) return;
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(`/api/sessions/${selectedStudent.id}`, { cache: "no-store" });
+      const data = await response.json();
+      setSessionHistory(Array.isArray(data) ? data : []);
+      await onRefresh();
+    } catch (error) {
+      toast.error("Gagal menyegarkan riwayat sesi");
     } finally {
       setLoadingHistory(false);
     }
@@ -312,6 +371,36 @@ const SessionsTable = ({
   };
 
   const getProgressPercentage = (used: number, total: number) => total > 0 ? (used / total) * 100 : 0;
+
+  const openManualScan = (student: Student) => {
+    setManualStudent(student);
+    setManualCheckIn(getDateTimeLocalValue());
+    setManualTherapistName(student.therapist && student.therapist !== "Belum ada terapis" ? student.therapist : therapistOptions[0] || "");
+  };
+
+  const handleManualScan = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!manualStudent?.package?.id) {
+      toast.error("Siswa belum memiliki paket sesi aktif");
+      return;
+    }
+
+    setSavingManual(true);
+    try {
+      const result = await createManualMissingScan(manualStudent.package.id, manualCheckIn, manualTherapistName);
+
+      if (result.success === false) {
+        toast.error(result.error || "Gagal mencatat missing scan");
+        return;
+      }
+
+      toast.success(`Missing scan ${manualStudent.name} berhasil dicatat`);
+      setManualStudent(null);
+      await onRefresh();
+    } finally {
+      setSavingManual(false);
+    }
+  };
 
   return (
     <>
@@ -383,6 +472,13 @@ const SessionsTable = ({
                   </td>
                   <td className="px-6 py-4 space-x-2 flex">
                     <button
+                      onClick={() => openManualScan(student)}
+                      disabled={!student.package || student.progress.used >= student.progress.total}
+                      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 disabled:text-zinc-300 disabled:no-underline font-medium text-sm hover:underline transition-colors"
+                    >
+                      Missing
+                    </button>
+                    <button
                       onClick={() => setSelectedStudent(student)}
                       className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium text-sm hover:underline transition-colors"
                     >
@@ -406,11 +502,76 @@ const SessionsTable = ({
         <DetailDrawer student={selectedStudent} onClose={() => setSelectedStudent(null)} />
       )}
 
+      {manualStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Koreksi Missing Scan</p>
+                <h2 className="mt-1 text-2xl font-black text-zinc-900 dark:text-zinc-100">{manualStudent.name}</h2>
+                <p className="mt-1 text-sm font-medium text-zinc-500">{manualStudent.program} · {manualStudent.therapist}</p>
+              </div>
+              <button
+                onClick={() => setManualStudent(null)}
+                className="rounded-xl p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {manualStudent.progress.used >= manualStudent.progress.total ? (
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-bold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                Paket sesi sudah habis. Tambahkan paket baru sebelum mencatat missing scan.
+              </div>
+            ) : (
+              <form onSubmit={handleManualScan} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Tanggal & Jam Masuk</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={manualCheckIn}
+                    onChange={(event) => setManualCheckIn(event.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Terapis yang Menangani</label>
+                  <select
+                    required
+                    value={manualTherapistName}
+                    onChange={(event) => setManualTherapistName(event.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  >
+                    <option value="">Pilih terapis...</option>
+                    {therapistOptions.map((therapist) => (
+                      <option key={therapist} value={therapist}>
+                        {therapist}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingManual}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-300"
+                >
+                  <Calendar size={17} />
+                  {savingManual ? "Menyimpan..." : "Simpan & Hitung Sesi"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {sessionHistoryOpen && selectedStudent && (
         <SessionHistoryWindow
           student={selectedStudent}
           history={sessionHistory}
           loading={loadingHistory}
+          therapistOptions={therapistOptions}
+          onChanged={refreshSessionHistory}
           onClose={() => {
             setSessionHistoryOpen(false);
             setSessionHistory([]);
@@ -425,13 +586,65 @@ const SessionHistoryWindow = ({
   student,
   history,
   loading,
+  therapistOptions,
+  onChanged,
   onClose,
 }: {
   student: Student;
   history: any[];
   loading: boolean;
+  therapistOptions: string[];
+  onChanged: () => Promise<void>;
   onClose: () => void;
 }) => {
+  const [editingSession, setEditingSession] = useState<any | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editTherapistName, setEditTherapistName] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  const openEdit = (session: any) => {
+    setEditingSession(session);
+    setEditCheckIn(getDateTimeLocalFromValue(session.checkIn));
+    setEditTherapistName(session.teacher?.user?.name || therapistOptions[0] || "");
+  };
+
+  const handleEditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingSession) return;
+
+    setIsSavingEdit(true);
+    try {
+      const result = await updateAttendanceRecord(editingSession.id, editCheckIn, editTherapistName);
+      if (result.success === false) {
+        toast.error(result.error || "Gagal mengubah riwayat sesi");
+        return;
+      }
+      toast.success("Riwayat sesi diperbarui");
+      setEditingSession(null);
+      await onChanged();
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (session: any) => {
+    if (!window.confirm("Hapus riwayat scan ini? Jumlah sesi terpakai akan dikurangi.")) return;
+
+    setIsDeletingId(session.id);
+    try {
+      const result = await deleteAttendanceRecord(session.id);
+      if (result.success === false) {
+        toast.error(result.error || "Gagal menghapus riwayat sesi");
+        return;
+      }
+      toast.success("Riwayat sesi dihapus");
+      await onChanged();
+    } finally {
+      setIsDeletingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
@@ -547,6 +760,23 @@ const SessionHistoryWindow = ({
                           </div>
                         </div>
                       </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(session)}
+                          className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-50 dark:bg-zinc-950 dark:hover:bg-indigo-950/30"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(session)}
+                          disabled={isDeletingId === session.id}
+                          className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:bg-zinc-950 dark:hover:bg-rose-950/30"
+                        >
+                          {isDeletingId === session.id ? "..." : "Hapus"}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
@@ -571,6 +801,55 @@ const SessionHistoryWindow = ({
             </div>
           )}
         </div>
+
+        {editingSession && (
+          <div className="border-t border-zinc-200/50 bg-white p-5 dark:border-zinc-800/50 dark:bg-zinc-950">
+            <form onSubmit={handleEditSubmit} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Tanggal & Jam Scan</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={editCheckIn}
+                  onChange={(event) => setEditCheckIn(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Terapis</label>
+                <select
+                  required
+                  value={editTherapistName}
+                  onChange={(event) => setEditTherapistName(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="">Pilih terapis...</option>
+                  {therapistOptions.map((therapist) => (
+                    <option key={therapist} value={therapist}>
+                      {therapist}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSession(null)}
+                  className="rounded-xl border border-zinc-200 px-4 py-3 text-sm font-bold text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {isSavingEdit ? "Menyimpan..." : "Simpan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 p-4 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-3">
@@ -738,6 +1017,12 @@ export default function SessionsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingSession, setIsAddingSession] = useState(false);
+  const [isMissingScanOpen, setIsMissingScanOpen] = useState(false);
+  const [missingStudentId, setMissingStudentId] = useState("");
+  const [missingCheckIn, setMissingCheckIn] = useState(getDateTimeLocalValue);
+  const [missingTherapistName, setMissingTherapistName] = useState("");
+  const [isSubmittingMissingScan, setIsSubmittingMissingScan] = useState(false);
+  const [therapistOptions, setTherapistOptions] = useState<string[]>(THERAPIST_NAMES);
   const [frequency, setFrequency] = useState(0);
   const [isSubmittingSession, setIsSubmittingSession] = useState(false);
   const [filters, setFilters] = useState({
@@ -761,11 +1046,26 @@ export default function SessionsPage() {
     }
   };
 
+  const fetchTherapists = async (silent = false) => {
+    try {
+      const response = await fetch("/api/teachers", { cache: "no-store" });
+      if (!response.ok) throw new Error("Gagal memuat data guru");
+      const data = await response.json();
+      const names = normalizeTeacherNames(data);
+      setTherapistOptions(names.length > 0 ? names : THERAPIST_NAMES);
+    } catch (error) {
+      if (!silent) console.error("Error fetching therapists:", error);
+      setTherapistOptions((current) => (current.length > 0 ? current : THERAPIST_NAMES));
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
+    fetchTherapists();
 
     const interval = setInterval(() => {
       fetchStudents(true);
+      fetchTherapists(true);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -863,6 +1163,52 @@ export default function SessionsPage() {
     }
   };
 
+  const openMissingScanModal = () => {
+    const firstActiveStudent = visibleStudents.find(
+      (student) => student.package?.id && student.progress.used < student.progress.total,
+    );
+    setMissingStudentId(firstActiveStudent?.id || "");
+    setMissingCheckIn(getDateTimeLocalValue());
+    setMissingTherapistName(
+      firstActiveStudent?.therapist && firstActiveStudent.therapist !== "Belum ada terapis"
+        ? firstActiveStudent.therapist
+        : therapistOptions[0] || "",
+    );
+    setIsMissingScanOpen(true);
+  };
+
+  const handleMissingScan = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const student = students.find((item) => item.id === missingStudentId);
+
+    if (!student?.package?.id) {
+      toast.error("Pilih siswa yang memiliki paket sesi aktif");
+      return;
+    }
+
+    if (student.progress.used >= student.progress.total) {
+      toast.error("Paket sesi siswa ini sudah habis");
+      return;
+    }
+
+    try {
+      setIsSubmittingMissingScan(true);
+      const result = await createManualMissingScan(student.package.id, missingCheckIn, missingTherapistName);
+
+      if (result.success === false) {
+        toast.error(result.error || "Gagal mencatat missing scan");
+        return;
+      }
+
+      toast.success(`Missing scan ${student.name} berhasil dicatat`);
+      setIsMissingScanOpen(false);
+      setMissingStudentId("");
+      await fetchStudents();
+    } finally {
+      setIsSubmittingMissingScan(false);
+    }
+  };
+
   // Calculate metrics
   const totalStudents = students.length;
   const totalSessions = students.reduce((sum, s) => sum + s.progress.total, 0);
@@ -933,16 +1279,108 @@ export default function SessionsPage() {
 
           <QuickActions
             onAddSession={() => setIsAddingSession(true)}
+            onMissingScan={openMissingScanModal}
             onExportExcel={exportToExcel}
             onExportPDF={exportToPDF}
           />
-          <FilterPanel filters={filters} onFilterChange={handleFilterChange} />
-          <SessionsTable students={students} searchQuery={searchQuery} filters={filters} />
+          <FilterPanel filters={filters} onFilterChange={handleFilterChange} therapistOptions={therapistOptions} />
+          <SessionsTable
+            students={students}
+            searchQuery={searchQuery}
+            filters={filters}
+            onRefresh={() => fetchStudents(true)}
+            therapistOptions={therapistOptions}
+          />
 
           <div className="mt-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
             Menampilkan {students.length} siswa • Diperbarui realtime
           </div>
         </>
+      )}
+
+      {isMissingScanOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-zinc-200/50 bg-white p-6 shadow-2xl dark:border-zinc-800/50 dark:bg-zinc-950">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Koreksi Sesi</p>
+                <h2 className="mt-1 text-2xl font-black text-zinc-900 dark:text-zinc-100">Catat Missing Scan</h2>
+                <p className="mt-1 text-sm font-medium text-zinc-500">
+                  Pilih siswa, tanggal, dan jam masuk agar sesi tetap terhitung.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsMissingScanOpen(false)}
+                className="rounded-xl p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleMissingScan} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Siswa</label>
+                <select
+                  required
+                  value={missingStudentId}
+                  onChange={(event) => {
+                    const nextStudent = students.find((item) => item.id === event.target.value);
+                    setMissingStudentId(event.target.value);
+                    setMissingTherapistName(
+                      nextStudent?.therapist && nextStudent.therapist !== "Belum ada terapis"
+                        ? nextStudent.therapist
+                        : therapistOptions[0] || "",
+                    );
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="">Pilih siswa...</option>
+                  {students
+                    .filter((student) => student.package?.id && student.progress.used < student.progress.total)
+                    .map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.name} - {student.program} ({student.progress.used}/{student.progress.total})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Tanggal & Jam Masuk</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={missingCheckIn}
+                  onChange={(event) => setMissingCheckIn(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-zinc-500">Terapis yang Menangani</label>
+                <select
+                  required
+                  value={missingTherapistName}
+                  onChange={(event) => setMissingTherapistName(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-bold text-zinc-900 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="">Pilih terapis...</option>
+                  {therapistOptions.map((therapist) => (
+                    <option key={therapist} value={therapist}>
+                      {therapist}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmittingMissingScan}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-wait disabled:bg-emerald-300"
+              >
+                <Calendar size={17} />
+                {isSubmittingMissingScan ? "Menyimpan..." : "Simpan & Hitung Sesi"}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
 
       {isAddingSession && (
@@ -1008,7 +1446,7 @@ export default function SessionsPage() {
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="">Pilih terapis...</option>
-                    {THERAPIST_NAMES.map((therapist) => (
+                    {therapistOptions.map((therapist) => (
                       <option key={therapist} value={therapist}>
                         {therapist}
                       </option>

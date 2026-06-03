@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         data: teachers.map((t) => ({
           ...t,
           name: t.user?.name,
+          profileImage: t.user?.profileImage,
           latestAttendance: t.attendanceLogs[0] || null,
         })),
         total: teachers.length,
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
             email: body.email,
             name: body.name,
             role: 'TEACHER',
+            profileImage: body.profileImage || null,
           },
         },
       },

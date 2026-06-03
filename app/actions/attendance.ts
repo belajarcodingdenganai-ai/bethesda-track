@@ -55,6 +55,240 @@ function getJakartaAttendanceTime(now: Date) {
   };
 }
 
+function parseJakartaDateTime(value: string) {
+  const normalized = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)) {
+    throw new Error('Tanggal dan jam masuk tidak valid.');
+  }
+
+  const parsed = new Date(`${normalized}:00.000+07:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('Tanggal dan jam masuk tidak valid.');
+  }
+
+  return parsed;
+}
+
+function getPackageStatusFromUsage(usedSessions: number, totalSessions: number): 'ACTIVE' | 'WARNING' | 'COMPLETED' {
+  if (usedSessions >= totalSessions) return 'COMPLETED';
+  if (totalSessions - usedSessions <= 2) return 'WARNING';
+  return 'ACTIVE';
+}
+
+async function revalidateAttendanceViews(studentId?: string) {
+  revalidatePath('/');
+  revalidatePath('/sessions');
+  revalidatePath('/students');
+  if (studentId) revalidatePath(`/students/${studentId}`);
+  revalidatePath('/reports');
+}
+
+export async function createManualMissingScan(packageId: string, checkInLocal: string, therapistName: string) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const checkIn = parseJakartaDateTime(checkInLocal);
+      const selectedTherapistName = therapistName.trim();
+      if (!selectedTherapistName) {
+        throw new Error('Nama terapis wajib dipilih.');
+      }
+
+      const dayStart = new Date(checkIn);
+      dayStart.setUTCHours(17, 0, 0, 0);
+      if (dayStart.getTime() > checkIn.getTime()) {
+        dayStart.setUTCDate(dayStart.getUTCDate() - 1);
+      }
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+      dayEnd.setUTCMilliseconds(dayEnd.getUTCMilliseconds() - 1);
+
+      const activePkg = await tx.therapyPackage.findUnique({
+        where: { id: packageId },
+        include: {
+          student: true,
+          program: true,
+        },
+      });
+
+      if (!activePkg) throw new Error('Paket sesi tidak ditemukan.');
+      if (activePkg.status === 'COMPLETED' || activePkg.usedSessions >= activePkg.totalSessions) {
+        throw new Error('Paket sesi sudah selesai. Tambahkan paket baru sebelum koreksi sesi.');
+      }
+
+      const existingAttendance = await tx.attendance.findFirst({
+        where: {
+          studentId: activePkg.studentId,
+          packageId: activePkg.id,
+          checkIn: {
+            gte: dayStart,
+            lte: dayEnd,
+          },
+        },
+      });
+
+      if (existingAttendance) {
+        throw new Error('Siswa sudah memiliki sesi tercatat pada tanggal tersebut.');
+      }
+
+      const teacher = await tx.teacher.findFirst({
+        where: {
+          user: {
+            name: selectedTherapistName,
+          },
+        },
+      });
+
+      if (!teacher) throw new Error('Terapis tidak ditemukan. Pastikan nama terapis sudah terdaftar.');
+
+      const newUsedSessions = activePkg.usedSessions + 1;
+      const newStatus = getPackageStatusFromUsage(newUsedSessions, activePkg.totalSessions);
+
+      await tx.attendance.create({
+        data: {
+          studentId: activePkg.studentId,
+          teacherId: teacher.id,
+          programId: activePkg.programId,
+          packageId: activePkg.id,
+          checkIn,
+          status: 'PRESENT',
+          qrCodeScanned: 'MANUAL_MISSING_SCAN',
+        },
+      });
+
+      await tx.therapyPackage.update({
+        where: { id: activePkg.id },
+        data: {
+          usedSessions: newUsedSessions,
+          status: newStatus,
+        },
+      });
+
+      if (newStatus === 'WARNING') {
+        await tx.notification.create({
+          data: {
+            type: 'SESSION_ALERT',
+            title: 'Paket Hampir Habis',
+            message: `Koreksi sesi manual: paket terapi ${activePkg.student.name} tinggal ${activePkg.totalSessions - newUsedSessions} sesi.`,
+            studentId: activePkg.studentId,
+            packageId: activePkg.id,
+          },
+        });
+      }
+
+      if (newStatus === 'COMPLETED') {
+        await tx.notification.create({
+          data: {
+            type: 'SESSION_ALERT',
+            title: 'Paket Selesai',
+            message: `Koreksi sesi manual: seluruh sesi terapi ${activePkg.student.name} telah selesai digunakan.`,
+            studentId: activePkg.studentId,
+            packageId: activePkg.id,
+          },
+        });
+      }
+
+      revalidatePath('/');
+      revalidatePath('/sessions');
+      revalidatePath('/students');
+      revalidatePath(`/students/${activePkg.studentId}`);
+      revalidatePath('/reports');
+
+      return {
+        success: true as const,
+        data: {
+          studentName: activePkg.student.name,
+          usedSessions: newUsedSessions,
+          totalSessions: activePkg.totalSessions,
+          checkIn,
+        },
+      };
+    });
+  } catch (error) {
+    console.error('Error creating manual missing scan:', error);
+    return {
+      success: false as const,
+      error: getPrismaErrorMessage(error),
+    };
+  }
+}
+
+export async function updateAttendanceRecord(attendanceId: string, checkInLocal: string, therapistName?: string) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const checkIn = parseJakartaDateTime(checkInLocal);
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        include: { teacher: { include: { user: true } } },
+      });
+
+      if (!attendance) throw new Error('Riwayat scan tidak ditemukan.');
+
+      let teacherId = attendance.teacherId;
+      const selectedTherapistName = therapistName?.trim();
+      if (selectedTherapistName) {
+        const teacher = await tx.teacher.findFirst({
+          where: { user: { name: selectedTherapistName } },
+        });
+        if (!teacher) throw new Error('Terapis tidak ditemukan.');
+        teacherId = teacher.id;
+      }
+
+      const checkOut =
+        attendance.duration && attendance.duration > 0
+          ? new Date(checkIn.getTime() + attendance.duration * 60000)
+          : null;
+
+      const updated = await tx.attendance.update({
+        where: { id: attendanceId },
+        data: {
+          checkIn,
+          checkOut,
+          teacherId,
+        },
+      });
+
+      await revalidateAttendanceViews(attendance.studentId);
+      return { success: true as const, data: updated };
+    });
+  } catch (error) {
+    console.error('Error updating attendance:', error);
+    return { success: false as const, error: getPrismaErrorMessage(error) };
+  }
+}
+
+export async function deleteAttendanceRecord(attendanceId: string) {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        include: { package: true },
+      });
+
+      if (!attendance) throw new Error('Riwayat scan tidak ditemukan.');
+
+      await tx.attendance.delete({
+        where: { id: attendanceId },
+      });
+
+      const newUsedSessions = Math.max((attendance.package?.usedSessions || 0) - 1, 0);
+      if (attendance.packageId && attendance.package) {
+        await tx.therapyPackage.update({
+          where: { id: attendance.packageId },
+          data: {
+            usedSessions: newUsedSessions,
+            status: getPackageStatusFromUsage(newUsedSessions, attendance.package.totalSessions),
+          },
+        });
+      }
+
+      await revalidateAttendanceViews(attendance.studentId);
+      return { success: true as const };
+    });
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    return { success: false as const, error: getPrismaErrorMessage(error) };
+  }
+}
+
 export async function processAttendance(rawQrCode: string, teacherId: string, programId?: string) {
   const qrCode = rawQrCode.trim(); // Membersihkan karakter \n atau spasi dari scanner
 

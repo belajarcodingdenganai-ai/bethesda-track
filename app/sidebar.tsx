@@ -17,7 +17,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-auto min-h-16 items-center justify-between px-4 pt-safe border-b border-zinc-200/70 bg-white/90 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
+      <header className="mobile-app-header fixed inset-x-0 z-50 flex h-16 items-center justify-between border-b border-zinc-200/70 bg-white/95 px-4 shadow-sm shadow-zinc-200/60 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/95 dark:shadow-black/20 md:hidden">
         <Link href="/" className="flex items-center gap-3 py-3">
           <BrandMark />
           <div className="flex flex-col leading-none">

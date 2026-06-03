@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Search, Filter, Download, Edit2, Trash2, Plus, User, Mail, Phone, Briefcase, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Search, Filter, Download, Edit2, Trash2, Plus, User, Mail, Phone, Briefcase, ChevronRight, ChevronLeft, ImageUp, Move, ZoomIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { createTeacher, deleteTeacher, syncDefaultTherapists, updateTeacher } from '@/app/actions/member';
@@ -16,9 +16,11 @@ interface Teacher {
   division: string;
   position: string;
   phone?: string;
+  profileImage?: string;
   user?: {
     email?: string;
     name?: string;
+    profileImage?: string;
   };
 }
 
@@ -72,6 +74,30 @@ const downloadCsv = (rows: Array<Record<string, string | number>>, filename: str
   URL.revokeObjectURL(url);
 };
 
+function getAvatarCropStyle(imageSize: { width: number; height: number } | null, xOffset: number, yOffset: number, zoom: number) {
+  if (!imageSize || imageSize.width <= 0 || imageSize.height <= 0) {
+    return {
+      width: '100%',
+      height: '100%',
+      left: '0%',
+      top: '0%',
+    };
+  }
+
+  const baseScale = Math.max(1 / imageSize.width, 1 / imageSize.height);
+  const widthPct = imageSize.width * baseScale * zoom * 100;
+  const heightPct = imageSize.height * baseScale * zoom * 100;
+  const maxOffsetX = Math.max((widthPct - 100) / 2, 0);
+  const maxOffsetY = Math.max((heightPct - 100) / 2, 0);
+
+  return {
+    width: `${widthPct}%`,
+    height: `${heightPct}%`,
+    left: `${(100 - widthPct) / 2 + (xOffset / 50) * maxOffsetX}%`,
+    top: `${(100 - heightPct) / 2 + (yOffset / 50) * maxOffsetY}%`,
+  };
+}
+
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,12 +105,18 @@ export default function TeachersPage() {
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view' | 'success' | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [teacherDraft, setTeacherDraft] = useState<Record<string, string>>({});
+  const [teacherPhotoPreview, setTeacherPhotoPreview] = useState<string | null>(null);
+  const [teacherPhotoSize, setTeacherPhotoSize] = useState<{ width: number; height: number } | null>(null);
+  const [teacherAvatarX, setTeacherAvatarX] = useState(0);
+  const [teacherAvatarY, setTeacherAvatarY] = useState(0);
+  const [teacherAvatarZoom, setTeacherAvatarZoom] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSyncingDefaults, setIsSyncingDefaults] = useState(false);
   const [attendanceHistory, setAttendanceHistory] = useState<TeacherAttendance[]>([]);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
   const [isExportingAttendance, setIsExportingAttendance] = useState(false);
   const [step, setStep] = useState(1);
+  const teacherPhotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchTeachers();
@@ -123,12 +155,18 @@ export default function TeachersPage() {
     setModalMode(mode);
     setSelectedTeacher(teacher);
     setAttendanceHistory([]);
+    setTeacherPhotoPreview(teacher?.profileImage || teacher?.user?.profileImage || null);
+    setTeacherPhotoSize(null);
+    setTeacherAvatarX(0);
+    setTeacherAvatarY(0);
+    setTeacherAvatarZoom(1);
     setTeacherDraft({
       name: teacher?.name || teacher?.user?.name || '',
       email: teacher?.user?.email || '',
       phone: teacher?.phone || '',
       division: teacher?.division || '',
       position: teacher?.position || '',
+      profileImage: teacher?.profileImage || teacher?.user?.profileImage || '',
     });
 
     if (mode === 'view' && teacher) {
@@ -162,9 +200,73 @@ export default function TeachersPage() {
     setTeacherDraft(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleTeacherPhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setTeacherPhotoPreview(result);
+      setTeacherPhotoSize(null);
+      setTeacherAvatarX(0);
+      setTeacherAvatarY(0);
+      setTeacherAvatarZoom(1);
+      setTeacherDraft((prev) => ({ ...prev, profileImage: result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const renderTeacherAvatar = (src: string) => (
+    <img
+      src={src}
+      alt="Avatar guru"
+      className="absolute max-w-none object-fill"
+      onLoad={(event) => {
+        const image = event.currentTarget;
+        setTeacherPhotoSize({ width: image.naturalWidth, height: image.naturalHeight });
+      }}
+      style={getAvatarCropStyle(teacherPhotoSize, teacherAvatarX, teacherAvatarY, teacherAvatarZoom)}
+    />
+  );
+
+  const buildTeacherAvatarImage = async () => {
+    if (!teacherPhotoPreview) return teacherDraft.profileImage || selectedTeacher?.profileImage || selectedTeacher?.user?.profileImage || null;
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = teacherPhotoPreview;
+    });
+
+    const size = 384;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return teacherDraft.profileImage || selectedTeacher?.profileImage || selectedTeacher?.user?.profileImage || null;
+
+    const baseScale = Math.max(size / image.width, size / image.height);
+    const scale = baseScale * teacherAvatarZoom;
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const maxOffsetX = Math.max((drawWidth - size) / 2, 0);
+    const maxOffsetY = Math.max((drawHeight - size) / 2, 0);
+    const x = (size - drawWidth) / 2 + (teacherAvatarX / 50) * maxOffsetX;
+    const y = (size - drawHeight) / 2 + (teacherAvatarY / 50) * maxOffsetY;
+
+    ctx.fillStyle = '#eef2ff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    return canvas.toDataURL('image/jpeg', 0.86);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const avatarImage = await buildTeacherAvatarImage();
+    if (avatarImage) formData.set('profileImage', avatarImage);
     setTeacherDraft(Object.fromEntries(formData.entries()) as Record<string, string>);
     setIsSubmitting(true);
 
@@ -336,8 +438,12 @@ export default function TeachersPage() {
                   onClick={() => handleOpenModal('view', teacher)}
                   className="flex w-full items-center gap-4 text-left transition-all hover:text-indigo-600"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold">
-                    {teacher.name.charAt(0)}
+                  <div className="w-12 h-12 overflow-hidden rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
+                    {teacher.profileImage || teacher.user?.profileImage ? (
+                      <img src={teacher.profileImage || teacher.user?.profileImage} alt={teacher.name} className="h-full w-full object-cover" />
+                    ) : (
+                      teacher.name.charAt(0)
+                    )}
                   </div>
                   <div>
                     <div className="font-black text-zinc-900 dark:text-zinc-100">{teacher.name}</div>
@@ -403,8 +509,21 @@ export default function TeachersPage() {
 
             {modalMode === 'view' && selectedTeacher ? (
               <div className="max-h-[calc(88vh-112px)] overflow-y-auto pr-1">
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
                   <div className="space-y-4">
+                    <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
+                      <div className="mx-auto h-20 w-20 overflow-hidden rounded-3xl bg-indigo-600 text-white shadow-lg">
+                        {selectedTeacher.profileImage || selectedTeacher.user?.profileImage ? (
+                          <img src={selectedTeacher.profileImage || selectedTeacher.user?.profileImage} alt={selectedTeacher.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-3xl font-black">
+                            {(selectedTeacher.name || selectedTeacher.user?.name || 'G').charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-3 text-sm font-black text-zinc-900 dark:text-zinc-100">{selectedTeacher.name || selectedTeacher.user?.name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Foto Profil Guru</p>
+                    </div>
                     <MemberQrCard
                       name={selectedTeacher.name || selectedTeacher.user?.name || selectedTeacher.teacherId}
                       registrationNo={selectedTeacher.teacherId}
@@ -492,6 +611,54 @@ export default function TeachersPage() {
               </div>
             ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950/50">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative h-20 w-20 overflow-hidden rounded-3xl bg-indigo-600 text-white shadow-lg">
+                      {teacherPhotoPreview ? (
+                        renderTeacherAvatar(teacherPhotoPreview)
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-3xl font-black">
+                          {(teacherDraft.name || selectedTeacher?.name || 'G').charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Foto Profil Guru</p>
+                      <p className="mt-1 text-xs font-bold text-zinc-500">Edit avatar kotak guru dengan zoom dan posisi foto.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => teacherPhotoInputRef.current?.click()}
+                    className="rounded-2xl bg-indigo-600 p-3 text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700"
+                  >
+                    <ImageUp size={18} />
+                  </button>
+                </div>
+                <input ref={teacherPhotoInputRef} type="file" accept="image/*" onChange={handleTeacherPhotoSelect} className="hidden" />
+                <input type="hidden" name="profileImage" value={teacherPhotoPreview || teacherDraft.profileImage || ''} />
+                {teacherPhotoPreview && (
+                  <div className="mt-5 space-y-4">
+                    <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                      <ZoomIn size={14} />
+                      Zoom
+                      <input type="range" min="1" max="2.4" step="0.05" value={teacherAvatarZoom} onChange={(event) => setTeacherAvatarZoom(Number(event.target.value))} className="min-w-0 flex-1" />
+                    </label>
+                    <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                      <Move size={14} />
+                      Kiri/Kanan
+                      <input type="range" min="-50" max="50" step="1" value={teacherAvatarX} onChange={(event) => setTeacherAvatarX(Number(event.target.value))} className="min-w-0 flex-1" />
+                    </label>
+                    <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">
+                      <Move size={14} />
+                      Atas/Bawah
+                      <input type="range" min="-50" max="50" step="1" value={teacherAvatarY} onChange={(event) => setTeacherAvatarY(Number(event.target.value))} className="min-w-0 flex-1" />
+                    </label>
+                  </div>
+                )}
+              </div>
+
               {/* Step 1: Informasi Akun */}
               <div className={`space-y-4 ${step !== 1 ? 'hidden' : 'animate-in slide-in-from-right-4 duration-300'}`}>
                 <div className="space-y-2">

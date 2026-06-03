@@ -53,6 +53,15 @@
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
+
+  .mobile-top-chrome {
+    @apply fixed inset-x-0 top-0 z-40 bg-indigo-600 dark:bg-indigo-500;
+    height: calc(env(safe-area-inset-top) + 10px);
+  }
+
+  .mobile-app-header {
+    top: calc(env(safe-area-inset-top) + 10px);
+  }
 }
 
 @layer utilities {
@@ -84,6 +93,20 @@
 
     .glass-card {
       border-radius: 24px;
+    }
+
+    body .fixed.inset-0 {
+      padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    }
+
+    body .fixed.inset-0 > div[class*="max-h"],
+    body .fixed.inset-0 > div[class*="h-screen"] {
+      max-height: calc(100svh - 6rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    }
+
+    body .fixed.inset-0 form,
+    body .fixed.inset-0 [class*="overflow-y-auto"] {
+      scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
     }
   }
 

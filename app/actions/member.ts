@@ -352,6 +352,7 @@ export async function createTeacher(formData: FormData) {
     const phone = getOptionalFormString(formData, 'phone');
     const division = getOptionalFormString(formData, 'division');
     const position = getOptionalFormString(formData, 'position');
+    const profileImage = getOptionalFormString(formData, 'profileImage');
 
     if (!name) throw new Error('Nama guru wajib diisi.');
     if (!email) throw new Error('Email guru wajib diisi.');
@@ -367,6 +368,7 @@ export async function createTeacher(formData: FormData) {
           name,
           email,
           role: 'TEACHER',
+          profileImage,
         },
       });
 
@@ -454,6 +456,7 @@ export async function updateTeacher(id: string, formData: FormData) {
     const phone = getOptionalFormString(formData, 'phone');
     const division = getOptionalFormString(formData, 'division');
     const position = getOptionalFormString(formData, 'position');
+    const profileImage = getOptionalFormString(formData, 'profileImage');
 
     if (!name) throw new Error('Nama guru wajib diisi.');
     if (!email) throw new Error('Email guru wajib diisi.');
@@ -470,7 +473,7 @@ export async function updateTeacher(id: string, formData: FormData) {
 
       await tx.user.update({
         where: { id: existingTeacher.userId },
-        data: { name, email },
+        data: { name, email, profileImage },
       });
 
       const teacher = await tx.teacher.update({

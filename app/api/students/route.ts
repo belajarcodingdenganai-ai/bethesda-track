@@ -100,6 +100,24 @@ export async function GET(request: NextRequest) {
           status: true,
           parentPhone: true,
           qrCode: true,
+          packages: {
+            where: {
+              status: { in: ['ACTIVE', 'WARNING'] },
+            },
+            select: {
+              id: true,
+              totalSessions: true,
+              usedSessions: true,
+              status: true,
+              program: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
           _count: {
             select: {
               attendances: true,

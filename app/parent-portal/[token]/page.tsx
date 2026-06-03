@@ -203,13 +203,20 @@ export default function ParentPortalPage() {
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
                         <CheckCircle2 size={20} />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-black leading-5 sm:text-base">
                           {format(new Date(attendance.checkIn), 'EEEE, dd MMMM yyyy', { locale: id })}
                         </p>
-                        <p className="mt-0.5 text-sm leading-5 text-zinc-500">
-                          {attendance.program?.name || 'Terapi'} dengan {attendance.teacher?.user?.name || 'Terapis'}
-                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-sm leading-5 text-zinc-500">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-indigo-100 text-[10px] font-black text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-200">
+                            {attendance.teacher?.user?.profileImage ? (
+                              <img src={attendance.teacher.user.profileImage} alt={attendance.teacher?.user?.name || 'Terapis'} className="h-full w-full object-cover" />
+                            ) : (
+                              (attendance.teacher?.user?.name || 'T').charAt(0)
+                            )}
+                          </div>
+                          <span>{attendance.program?.name || 'Terapi'} dengan {attendance.teacher?.user?.name || 'Terapis'}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-bold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
@@ -238,6 +245,21 @@ export default function ParentPortalPage() {
                 <div>
                   <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Program</p>
                   <p className="text-lg font-black mt-1">{activePackage?.program?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Terapis</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-indigo-100 text-sm font-black text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-200">
+                      {student.therapistProfile?.profileImage ? (
+                        <img src={student.therapistProfile.profileImage} alt={student.therapistProfile.name} className="h-full w-full object-cover" />
+                      ) : (
+                        (student.therapistProfile?.name || activePackage?.therapistName || 'T').charAt(0)
+                      )}
+                    </div>
+                    <p className="text-base font-black text-zinc-900 dark:text-zinc-100">
+                      {student.therapistProfile?.name || activePackage?.therapistName || '-'}
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Frekuensi</p>

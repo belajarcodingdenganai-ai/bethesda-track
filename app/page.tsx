@@ -5,15 +5,29 @@ import { Search, Filter, Download, Plus, CreditCard, AlertCircle, CheckCircle2, 
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getTherapyPackages, addTherapyPackage } from '@/app/actions/member';
-import { getAttendanceHistory, getDashboardStats } from '@/app/actions/attendance';
+import { createManualMissingScan, deleteAttendanceRecord, getAttendanceHistory, getDashboardStats, updateAttendanceRecord } from '@/app/actions/attendance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '@/lib/therapy-options';
 
-// Data statis untuk filter (Dapat dipindahkan ke file konfigurasi atau DB)
-const THERAPISTS = THERAPIST_NAMES;
 const SCHEDULES = THERAPY_SCHEDULES;
 const SESSION_RANGES = ['Semua Sesi', '0 sesi', '1-5 sesi', '6-10 sesi', '11-20 sesi', '21-50 sesi', '50+ sesi'];
+
+function getDateTimeLocalValue(date = new Date()) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function normalizeTeacherNames(data: any) {
+  const teachers = Array.isArray(data) ? data : (data.data || []);
+  const names = teachers
+    .map((teacher: any) => teacher.name || teacher.user?.name)
+    .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+    .map((name: string) => name.trim());
+
+  return Array.from(new Set<string>(names)).sort((a, b) => a.localeCompare(b));
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>({
@@ -26,7 +40,17 @@ export default function DashboardPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [isAddingSession, setIsAddingSession] = useState(false);
+  const [isManualScanOpen, setIsManualScanOpen] = useState(false);
+  const [manualCheckIn, setManualCheckIn] = useState(getDateTimeLocalValue);
+  const [manualTherapistName, setManualTherapistName] = useState('');
+  const [isSubmittingManualScan, setIsSubmittingManualScan] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState<any | null>(null);
+  const [editAttendanceCheckIn, setEditAttendanceCheckIn] = useState('');
+  const [editAttendanceTherapist, setEditAttendanceTherapist] = useState('');
+  const [isSavingAttendanceEdit, setIsSavingAttendanceEdit] = useState(false);
+  const [deletingAttendanceId, setDeletingAttendanceId] = useState<string | null>(null);
   const [studentList, setStudentList] = useState<any[]>([]);
+  const [therapistOptions, setTherapistOptions] = useState<string[]>(THERAPIST_NAMES);
   const [frequency, setFrequency] = useState(0);
 
   // State untuk Filter
@@ -40,11 +64,13 @@ export default function DashboardPage() {
     fetchDashboard();
     fetchPackages();
     fetchStudents();
+    fetchTherapists();
 
     const interval = setInterval(() => {
       fetchDashboard(true);
       fetchPackages(true);
       fetchStudents();
+      fetchTherapists(true);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -83,6 +109,19 @@ export default function DashboardPage() {
       toast.error('Gagal memuat data sesi');
     } finally {
       if (!silent) setLoading(false);
+    }
+  };
+
+  const fetchTherapists = async (silent = false) => {
+    try {
+      const response = await fetch('/api/teachers', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Gagal memuat data guru');
+      const data = await response.json();
+      const names = normalizeTeacherNames(data);
+      setTherapistOptions(names.length > 0 ? names : THERAPIST_NAMES);
+    } catch (error) {
+      if (!silent) console.error('Error fetching therapists:', error);
+      setTherapistOptions((current) => (current.length > 0 ? current : THERAPIST_NAMES));
     }
   };
 
@@ -157,12 +196,109 @@ export default function DashboardPage() {
   const openDetail = async (pkg: any) => {
     setSelectedPkg(pkg);
     setIsDrawerOpen(true);
+    setIsManualScanOpen(false);
+    setEditingAttendance(null);
+    setManualCheckIn(getDateTimeLocalValue());
+    setManualTherapistName(pkg.therapistName || therapistOptions[0] || '');
     setAttendanceHistory([]);
     try {
       const result = await getAttendanceHistory(pkg.id);
       if (result.success) setAttendanceHistory(result.data);
     } catch (error) {
       toast.error('Gagal memuat riwayat kehadiran');
+    }
+  };
+
+  const handleManualMissingScan = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedPkg) return;
+
+    setIsSubmittingManualScan(true);
+    try {
+      const result = await createManualMissingScan(selectedPkg.id, manualCheckIn, manualTherapistName);
+
+      if (result.success === false) {
+        toast.error(result.error || 'Gagal mencatat missing scan');
+        return;
+      }
+
+      toast.success(`Missing scan ${selectedPkg.student.name} berhasil dicatat`);
+      setIsManualScanOpen(false);
+      setManualCheckIn(getDateTimeLocalValue());
+      setManualTherapistName(selectedPkg.therapistName || therapistOptions[0] || '');
+      setSelectedPkg((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              usedSessions: result.data?.usedSessions ?? prev.usedSessions,
+              status:
+                result.data?.usedSessions >= prev.totalSessions
+                  ? 'COMPLETED'
+                  : prev.totalSessions - (result.data?.usedSessions ?? prev.usedSessions) <= 2
+                    ? 'WARNING'
+                    : 'ACTIVE',
+            }
+          : prev,
+      );
+
+      const history = await getAttendanceHistory(selectedPkg.id);
+      if (history.success) setAttendanceHistory(history.data);
+      fetchDashboard(true);
+      fetchPackages(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mencatat missing scan');
+    } finally {
+      setIsSubmittingManualScan(false);
+    }
+  };
+
+  const refreshSelectedHistory = async () => {
+    if (!selectedPkg) return;
+    const history = await getAttendanceHistory(selectedPkg.id);
+    if (history.success) setAttendanceHistory(history.data);
+    fetchDashboard(true);
+    fetchPackages(true);
+  };
+
+  const openAttendanceEdit = (attendance: any) => {
+    setEditingAttendance(attendance);
+    setEditAttendanceCheckIn(getDateTimeLocalValue(new Date(attendance.checkIn)));
+    setEditAttendanceTherapist(attendance.teacher?.user?.name || therapistOptions[0] || '');
+  };
+
+  const handleAttendanceEdit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingAttendance) return;
+
+    setIsSavingAttendanceEdit(true);
+    try {
+      const result = await updateAttendanceRecord(editingAttendance.id, editAttendanceCheckIn, editAttendanceTherapist);
+      if (result.success === false) {
+        toast.error(result.error || 'Gagal mengubah riwayat scan');
+        return;
+      }
+      toast.success('Riwayat scan diperbarui');
+      setEditingAttendance(null);
+      await refreshSelectedHistory();
+    } finally {
+      setIsSavingAttendanceEdit(false);
+    }
+  };
+
+  const handleAttendanceDelete = async (attendance: any) => {
+    if (!window.confirm('Hapus riwayat scan ini? Jumlah sesi terpakai akan dikurangi.')) return;
+
+    setDeletingAttendanceId(attendance.id);
+    try {
+      const result = await deleteAttendanceRecord(attendance.id);
+      if (result.success === false) {
+        toast.error(result.error || 'Gagal menghapus riwayat scan');
+        return;
+      }
+      toast.success('Riwayat scan dihapus');
+      await refreshSelectedHistory();
+    } finally {
+      setDeletingAttendanceId(null);
     }
   };
 
@@ -313,7 +449,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
           <FilterDropdown label="Program" options={['Semua Program', 'ABA', 'SI', 'SPEECH', 'OT', 'ACADEMIC']} value={programFilter} onChange={setProgramFilter} />
           <FilterDropdown label="Status" options={['ALL', 'ACTIVE', 'WARNING', 'COMPLETED']} value={statusFilter} onChange={setStatusFilter} />
-          <FilterDropdown label="Terapis" options={['Semua Terapis', ...THERAPISTS]} value={therapistFilter} onChange={setTherapistFilter} />
+          <FilterDropdown label="Terapis" options={['Semua Terapis', ...therapistOptions]} value={therapistFilter} onChange={setTherapistFilter} />
           <FilterDropdown label="Jadwal" options={['Semua Jadwal', ...SCHEDULES]} value={scheduleFilter} onChange={setScheduleFilter} />
           <FilterDropdown label="Sesi Terpakai" options={SESSION_RANGES} value={sessionRangeFilter} onChange={setSessionRangeFilter} />
         </div>
@@ -450,7 +586,7 @@ export default function DashboardPage() {
                     <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Terapis</label>
                     <select name="therapistId" required className="form-input-pro">
                       <option value="">Pilih Terapis...</option>
-                      {THERAPISTS.map(t => <option key={t} value={t}>{t}</option>)}
+                      {therapistOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
@@ -543,11 +679,72 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-2 dark:border-zinc-800">
+                  <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Koreksi Missing Scan</h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualScanOpen((value) => !value)}
+                    disabled={selectedPkg.usedSessions >= selectedPkg.totalSessions || selectedPkg.status === 'COMPLETED'}
+                    className="rounded-xl bg-zinc-950 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white transition-all hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-white dark:text-zinc-950 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                  >
+                    {isManualScanOpen ? 'Tutup' : 'Catat'}
+                  </button>
+                </div>
+
+                {selectedPkg.usedSessions >= selectedPkg.totalSessions || selectedPkg.status === 'COMPLETED' ? (
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs font-bold leading-5 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                    Paket sudah selesai. Tambahkan paket sesi baru sebelum mencatat missing scan tambahan.
+                  </div>
+                ) : isManualScanOpen ? (
+                  <form onSubmit={handleManualMissingScan} className="space-y-4 rounded-3xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="space-y-2">
+                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">Tanggal & Jam Masuk</label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={manualCheckIn}
+                        onChange={(event) => setManualCheckIn(event.target.value)}
+                        className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-zinc-400">Terapis yang Menangani</label>
+                      <select
+                        required
+                        value={manualTherapistName}
+                        onChange={(event) => setManualTherapistName(event.target.value)}
+                        className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                      >
+                        <option value="">Pilih terapis...</option>
+                        {therapistOptions.map((therapist) => (
+                          <option key={therapist} value={therapist}>
+                            {therapist}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingManualScan}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-700 disabled:cursor-wait disabled:bg-indigo-300"
+                    >
+                      <Calendar size={16} />
+                      {isSubmittingManualScan ? 'Menyimpan...' : 'Simpan & Hitung Sesi'}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="rounded-2xl bg-zinc-50 p-4 text-xs font-semibold leading-5 text-zinc-500 dark:bg-zinc-800/50">
+                    Gunakan ini saat anak hadir tetapi QR tidak sempat discan. Tanggal dan jam bisa disesuaikan, lalu sesi akan otomatis terhitung.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest border-b border-zinc-100 pb-2">Riwayat Scan Anak</h3>
                 <div className="space-y-3">
                   {attendanceHistory.length > 0 ? (
                     attendanceHistory.map((att: any) => (
-                      <div key={att.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex items-center justify-between group/att hover:bg-white dark:hover:bg-zinc-800 transition-all border border-transparent hover:border-zinc-100 dark:hover:border-zinc-700">
+                      <div key={att.id} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex items-center justify-between gap-3 group/att hover:bg-white dark:hover:bg-zinc-800 transition-all border border-transparent hover:border-zinc-100 dark:hover:border-zinc-700">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
                             <CheckCircle2 size={16} />
@@ -557,9 +754,26 @@ export default function DashboardPage() {
                             <p className="text-[10px] font-medium text-zinc-400">Terapis: {att.teacher?.user?.name || 'Staf'}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black tabular-nums text-zinc-900 dark:text-zinc-100">{format(new Date(att.checkIn), 'HH:mm')}</p>
-                          <p className="text-[9px] font-black text-indigo-600 uppercase tracking-tighter">Hadir</p>
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <p className="text-xs font-black tabular-nums text-zinc-900 dark:text-zinc-100">{format(new Date(att.checkIn), 'HH:mm')}</p>
+                            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-tighter">Hadir</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openAttendanceEdit(att)}
+                            className="rounded-xl bg-white px-2.5 py-2 text-[10px] font-black uppercase text-indigo-600 transition-colors hover:bg-indigo-50 dark:bg-zinc-950 dark:hover:bg-indigo-950/30"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAttendanceDelete(att)}
+                            disabled={deletingAttendanceId === att.id}
+                            className="rounded-xl bg-white px-2.5 py-2 text-[10px] font-black uppercase text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:bg-zinc-950 dark:hover:bg-rose-950/30"
+                          >
+                            {deletingAttendanceId === att.id ? '...' : 'Hapus'}
+                          </button>
                         </div>
                       </div>
                     ))
@@ -567,6 +781,44 @@ export default function DashboardPage() {
                     <p className="text-xs text-center text-zinc-400 py-10 italic">Belum ada riwayat kehadiran.</p>
                   )}
                 </div>
+                {editingAttendance && (
+                  <form onSubmit={handleAttendanceEdit} className="space-y-3 rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Tanggal & Jam Scan</label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={editAttendanceCheckIn}
+                        onChange={(event) => setEditAttendanceCheckIn(event.target.value)}
+                        className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Terapis</label>
+                      <select
+                        required
+                        value={editAttendanceTherapist}
+                        onChange={(event) => setEditAttendanceTherapist(event.target.value)}
+                        className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                      >
+                        <option value="">Pilih terapis...</option>
+                        {therapistOptions.map((therapist) => (
+                          <option key={therapist} value={therapist}>
+                            {therapist}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setEditingAttendance(null)} className="flex-1 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+                        Batal
+                      </button>
+                      <button type="submit" disabled={isSavingAttendanceEdit} className="flex-1 rounded-2xl bg-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-60">
+                        {isSavingAttendanceEdit ? 'Menyimpan...' : 'Simpan'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           </div>

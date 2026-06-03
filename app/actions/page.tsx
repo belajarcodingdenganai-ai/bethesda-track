@@ -9,6 +9,16 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '@/lib/therapy-options';
 
+function normalizeTeacherNames(data: any) {
+  const teachers = Array.isArray(data) ? data : (data.data || []);
+  const names = teachers
+    .map((teacher: any) => teacher.name || teacher.user?.name)
+    .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+    .map((name: string) => name.trim());
+
+  return Array.from(new Set<string>(names)).sort((a, b) => a.localeCompare(b));
+}
+
 export default function TherapyPackagesPage() {
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,11 +29,13 @@ export default function TherapyPackagesPage() {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [isAddingSession, setIsAddingSession] = useState(false);
   const [studentList, setStudentList] = useState<any[]>([]);
+  const [therapistOptions, setTherapistOptions] = useState<string[]>(THERAPIST_NAMES);
   const [frequency, setFrequency] = useState(0);
 
   useEffect(() => {
     fetchPackages();
     fetchStudents();
+    fetchTherapists();
   }, []);
 
   const fetchStudents = async () => {
@@ -49,6 +61,19 @@ export default function TherapyPackagesPage() {
       toast.error('Terjadi kesalahan sistem');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTherapists = async () => {
+    try {
+      const response = await fetch('/api/teachers', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Gagal memuat data guru');
+      const data = await response.json();
+      const names = normalizeTeacherNames(data);
+      setTherapistOptions(names.length > 0 ? names : THERAPIST_NAMES);
+    } catch (error) {
+      console.error('Error fetching therapists:', error);
+      setTherapistOptions((current) => (current.length > 0 ? current : THERAPIST_NAMES));
     }
   };
 
@@ -342,7 +367,7 @@ export default function TherapyPackagesPage() {
                     <label className="text-[10px] font-black uppercase text-zinc-400 ml-4 tracking-widest">Terapis</label>
                     <select name="therapistId" required className="form-input-pro">
                       <option value="">Pilih Terapis...</option>
-                      {THERAPIST_NAMES.map((therapist) => (
+                      {therapistOptions.map((therapist) => (
                         <option key={therapist} value={therapist}>{therapist}</option>
                       ))}
                     </select>

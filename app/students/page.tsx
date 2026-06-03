@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash, Activity, ImageUp, Move, ZoomIn } from 'lucide-react';
+import { Search, Download, Eye, Edit2, Trash2, Plus, Contact2, X, MessageSquare, Copy, Phone, ShieldCheck, ExternalLink, QrCode, Hash, Activity, ImageUp, Move, ZoomIn, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { createStudent, deleteStudent, updateStudent } from '@/app/actions/member';
+import { createManualMissingScan } from '@/app/actions/attendance';
 import MemberQrCard from '@/components/qr/member-qr-card';
+import { THERAPIST_NAMES } from '@/lib/therapy-options';
 
 interface Student {
   id: string;
@@ -22,9 +24,56 @@ interface Student {
   status: string;
   parentPhone?: string;
   qrCode: string;
+  packages?: Array<{
+    id: string;
+    totalSessions: number;
+    usedSessions: number;
+    status: string;
+    program?: { name: string };
+  }>;
   _count?: {
     attendances: number;
     packages: number;
+  };
+}
+
+function getDateTimeLocalValue(date = new Date()) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function normalizeTeacherNames(data: any) {
+  const teachers = Array.isArray(data) ? data : (data.data || []);
+  const names = teachers
+    .map((teacher: any) => teacher.name || teacher.user?.name)
+    .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+    .map((name: string) => name.trim());
+
+  return Array.from(new Set<string>(names)).sort((a, b) => a.localeCompare(b));
+}
+
+function getAvatarCropStyle(imageSize: { width: number; height: number } | null, xOffset: number, yOffset: number, zoom: number) {
+  if (!imageSize || imageSize.width <= 0 || imageSize.height <= 0) {
+    return {
+      width: '100%',
+      height: '100%',
+      left: '0%',
+      top: '0%',
+    };
+  }
+
+  const baseScale = Math.max(1 / imageSize.width, 1 / imageSize.height);
+  const widthPct = imageSize.width * baseScale * zoom * 100;
+  const heightPct = imageSize.height * baseScale * zoom * 100;
+  const maxOffsetX = Math.max((widthPct - 100) / 2, 0);
+  const maxOffsetY = Math.max((heightPct - 100) / 2, 0);
+
+  return {
+    width: `${widthPct}%`,
+    height: `${heightPct}%`,
+    left: `${(100 - widthPct) / 2 + (xOffset / 50) * maxOffsetX}%`,
+    top: `${(100 - heightPct) / 2 + (yOffset / 50) * maxOffsetY}%`,
   };
 }
 
@@ -37,6 +86,11 @@ export default function StudentsPage() {
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view' | 'success' | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isParentPortalOpen, setIsParentPortalOpen] = useState(false);
+  const [manualScanStudent, setManualScanStudent] = useState<Student | null>(null);
+  const [manualCheckIn, setManualCheckIn] = useState(getDateTimeLocalValue);
+  const [manualTherapistName, setManualTherapistName] = useState('');
+  const [isSubmittingManualScan, setIsSubmittingManualScan] = useState(false);
+  const [therapistOptions, setTherapistOptions] = useState<string[]>(THERAPIST_NAMES);
   const [formDraft, setFormDraft] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -45,6 +99,7 @@ export default function StudentsPage() {
   const [dob, setDob] = useState('');
   const [ageDisplay, setAgeDisplay] = useState('');
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [profileImageSize, setProfileImageSize] = useState<{ width: number; height: number } | null>(null);
   const [avatarX, setAvatarX] = useState(0);
   const [avatarY, setAvatarY] = useState(0);
   const [avatarZoom, setAvatarZoom] = useState(1);
@@ -63,10 +118,12 @@ export default function StudentsPage() {
 
   useEffect(() => {
     fetchStudents();
+    fetchTherapists();
 
     // Auto-sync polling every 30 seconds for real-time consistency with desktop
     const interval = setInterval(() => {
       fetchStudents();
+      fetchTherapists(true);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -107,6 +164,19 @@ export default function StudentsPage() {
     }
   };
 
+  const fetchTherapists = async (silent = false) => {
+    try {
+      const response = await fetch('/api/teachers', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Gagal memuat data guru');
+      const data = await response.json();
+      const names = normalizeTeacherNames(data);
+      setTherapistOptions(names.length > 0 ? names : THERAPIST_NAMES);
+    } catch (error) {
+      if (!silent) console.error('Error fetching therapists:', error);
+      setTherapistOptions((current) => (current.length > 0 ? current : THERAPIST_NAMES));
+    }
+  };
+
   const filteredStudents = (Array.isArray(students) ? students : [])
     .filter((student) => {
       const name = student.name || '';
@@ -126,6 +196,10 @@ export default function StudentsPage() {
   const portalActiveStudents = filteredStudents.filter(
     (student) => Boolean(student.parentPhone) && student.status === 'ACTIVE'
   );
+  const studentsWithActivePackage = filteredStudents.filter((student) => {
+    const activePackage = student.packages?.[0];
+    return activePackage && activePackage.usedSessions < activePackage.totalSessions;
+  });
   const portalCoverage =
     filteredStudents.length > 0
       ? Math.round((portalActiveStudents.length / filteredStudents.length) * 100)
@@ -167,6 +241,44 @@ export default function StudentsPage() {
       window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Gagal membuat link parent portal');
+    }
+  };
+
+  const openManualMissingScan = (student?: Student) => {
+    const target = student || studentsWithActivePackage[0] || null;
+    if (!target) {
+      toast.error('Tidak ada siswa dengan paket aktif untuk missing scan');
+      return;
+    }
+
+    setManualScanStudent(target);
+    setManualCheckIn(getDateTimeLocalValue());
+    setManualTherapistName(therapistOptions[0] || '');
+  };
+
+  const handleManualMissingScan = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const activePackage = manualScanStudent?.packages?.[0];
+
+    if (!manualScanStudent || !activePackage) {
+      toast.error('Pilih siswa dengan paket aktif');
+      return;
+    }
+
+    setIsSubmittingManualScan(true);
+    try {
+      const result = await createManualMissingScan(activePackage.id, manualCheckIn, manualTherapistName);
+
+      if (result.success === false) {
+        toast.error(result.error || 'Gagal mencatat missing scan');
+        return;
+      }
+
+      toast.success(`Missing scan ${manualScanStudent.name} berhasil dicatat`);
+      setManualScanStudent(null);
+      await fetchStudents();
+    } finally {
+      setIsSubmittingManualScan(false);
     }
   };
 
@@ -240,6 +352,7 @@ export default function StudentsPage() {
     if (file) {
       const url = URL.createObjectURL(file);
       setProfilePreview(url);
+      setProfileImageSize(null);
       setAvatarX(0);
       setAvatarY(0);
       setAvatarZoom(1);
@@ -250,11 +363,12 @@ export default function StudentsPage() {
     <img
       src={src}
       alt="Avatar siswa"
-      className="h-full w-full object-cover"
-      style={{
-        transform: `translate(${avatarX}%, ${avatarY}%) scale(${avatarZoom})`,
-        transformOrigin: 'center',
+      className="absolute max-w-none object-fill"
+      onLoad={(event) => {
+        const image = event.currentTarget;
+        setProfileImageSize({ width: image.naturalWidth, height: image.naturalHeight });
       }}
+      style={getAvatarCropStyle(profileImageSize, avatarX, avatarY, avatarZoom)}
     />
   );
 
@@ -296,6 +410,7 @@ export default function StudentsPage() {
     setDob('');
     setAgeDisplay('');
     setProfilePreview(null);
+    setProfileImageSize(null);
     setAvatarX(0);
     setAvatarY(0);
     setAvatarZoom(1);
@@ -507,8 +622,8 @@ export default function StudentsPage() {
                     <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950/40">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Avatar Anak</p>
-                          <p className="text-xs font-bold text-zinc-500">Foto ini tampil di sesi terapi dan laporan orang tua.</p>
+                          <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Edit Avatar Kotak</p>
+                          <p className="text-xs font-bold text-zinc-500">Upload, zoom, dan geser foto sebelum disimpan.</p>
                         </div>
                         {modalMode !== 'view' && (
                           <button
@@ -521,8 +636,8 @@ export default function StudentsPage() {
                         )}
                       </div>
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                      <input type="hidden" name="profileImage" value={selectedStudent?.profileImage || ''} />
-                      <div className="mx-auto mt-5 h-36 w-36 overflow-hidden rounded-[32px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl">
+                      <input type="hidden" name="profileImage" value={profilePreview || selectedStudent?.profileImage || ''} />
+                      <div className="relative mx-auto mt-5 h-36 w-36 overflow-hidden rounded-[32px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl">
                         {profilePreview ? renderAvatar(profilePreview) : (
                           <div className="flex h-full w-full items-center justify-center text-5xl font-black">
                             {(formDraft.name || selectedStudent?.name || 'S').charAt(0)}
@@ -645,10 +760,33 @@ export default function StudentsPage() {
                {portalActiveStudents.length}
              </span>
           </button>
+          <button
+            onClick={() => openManualMissingScan()}
+            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 active:scale-95 transition-all shadow-lg shadow-emerald-600/20"
+          >
+            <Calendar size={16} />
+            <span className="text-xs font-bold uppercase tracking-tight">Missing Scan</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <button
+          onClick={() => openManualMissingScan()}
+          className="p-5 text-left rounded-[28px] border border-emerald-500/20 bg-emerald-50/80 shadow-sm transition-all hover:border-emerald-500/40 hover:bg-emerald-50 active:scale-[0.99] dark:bg-emerald-950/20 dark:border-emerald-900/40"
+        >
+          <div className="flex items-center justify-between">
+            <div className="p-3 bg-emerald-600 text-white rounded-2xl">
+              <Calendar size={20} />
+            </div>
+            <span className="text-2xl font-black text-emerald-700 dark:text-emerald-200">
+              {studentsWithActivePackage.length}
+            </span>
+          </div>
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Missing Scan</p>
+          <p className="text-sm font-bold text-emerald-800/80 dark:text-emerald-200/80">Catat sesi manual untuk siswa yang hadir tanpa scan</p>
+        </button>
+
         <button
           onClick={() => setIsParentPortalOpen(true)}
           className="p-5 text-left glass-card rounded-[28px] border border-indigo-500/10 hover:border-indigo-500/30 transition-all active:scale-[0.99]"
@@ -707,11 +845,16 @@ export default function StudentsPage() {
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Usia</th>
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Status</th>
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Kehadiran</th>
+                  <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Sesi</th>
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Portal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {filteredStudents.map((student) => (
+                {filteredStudents.map((student) => {
+                  const activePackage = student.packages?.[0];
+                  const canManualScan = Boolean(activePackage && activePackage.usedSessions < activePackage.totalSessions);
+
+                  return (
                   <tr key={student.id} className="group hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all duration-300">
                     <td className="px-6 py-4">
                     <button
@@ -751,6 +894,22 @@ export default function StudentsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
+                      <button
+                        onClick={() => openManualMissingScan(student)}
+                        disabled={!canManualScan}
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black uppercase tracking-tight text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:disabled:bg-zinc-800"
+                        title={canManualScan ? 'Catat missing scan siswa ini' : 'Siswa belum punya paket aktif atau sesi sudah habis'}
+                      >
+                        <Calendar size={14} />
+                        Missing
+                      </button>
+                      {activePackage && (
+                        <p className="mt-1 text-[10px] font-bold text-zinc-400">
+                          {activePackage.usedSessions}/{activePackage.totalSessions} {activePackage.program?.name || ''}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       {student.parentPhone ? (
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 text-[10px] font-black uppercase">
@@ -781,7 +940,8 @@ export default function StudentsPage() {
                       )}
                     </td>
                 </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -791,6 +951,70 @@ export default function StudentsPage() {
           </div>
         )}
       </div>
+
+      {manualScanStudent && (
+        <div className="fixed inset-0 z-[130] bg-zinc-950/30 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-[32px] border border-white/50 bg-white/95 p-6 shadow-2xl dark:border-zinc-800/50 dark:bg-zinc-950/95">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Koreksi Missing Scan</p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
+                  {manualScanStudent.name}
+                </h2>
+                <p className="mt-1 text-sm font-bold text-zinc-500">
+                  {manualScanStudent.packages?.[0]?.program?.name || 'Program aktif'} · {manualScanStudent.registrationNo}
+                </p>
+              </div>
+              <button
+                onClick={() => setManualScanStudent(null)}
+                className="rounded-2xl p-3 transition-all hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualMissingScan} className="space-y-4">
+              <div className="rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
+                Sesi akan dicatat sebagai hadir manual dan langsung menambah jumlah sesi terpakai.
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-zinc-400">Tanggal & Jam Masuk</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={manualCheckIn}
+                  onChange={(event) => setManualCheckIn(event.target.value)}
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-zinc-400">Terapis yang Menangani</label>
+                <select
+                  required
+                  value={manualTherapistName}
+                  onChange={(event) => setManualTherapistName(event.target.value)}
+                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black text-zinc-900 outline-none transition-all focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="">Pilih terapis...</option>
+                  {therapistOptions.map((therapist) => (
+                    <option key={therapist} value={therapist}>
+                      {therapist}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmittingManualScan}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-700 disabled:cursor-wait disabled:bg-emerald-300"
+              >
+                <Calendar size={17} />
+                {isSubmittingManualScan ? 'Menyimpan...' : 'Simpan & Hitung Sesi'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isParentPortalOpen && (
         <div className="fixed inset-0 z-[120] bg-zinc-950/30 backdrop-blur-md flex items-center justify-center p-4">
