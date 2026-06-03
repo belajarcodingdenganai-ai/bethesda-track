@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { getReportData, getDashboardStats } from '@/app/actions/attendance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { downloadBlobFile } from '@/lib/download-utils';
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -62,6 +63,74 @@ export default function ReportsPage() {
     }
   };
 
+  const buildReportRows = () => [
+    ...(reportData?.dailyAttendance || []).map((day: any) => ({
+      Kategori: 'Tren Kehadiran',
+      Nama: format(new Date(day.date), 'dd MMMM yyyy', { locale: id }),
+      Jumlah: day.count,
+      Keterangan: 'Kehadiran harian',
+    })),
+    ...(reportData?.programDistribution || []).map((program: any) => ({
+      Kategori: 'Distribusi Program',
+      Nama: program.name,
+      Jumlah: program.count,
+      Keterangan: 'Total sesi per program',
+    })),
+    ...(stats?.teacherAttendance || []).map((teacher: any) => ({
+      Kategori: 'Performa Terapis',
+      Nama: teacher.user?.name || '-',
+      Jumlah: teacher._count?.attendances || 0,
+      Keterangan: teacher.division || '-',
+    })),
+  ];
+
+  const exportReportExcel = async () => {
+    const rows = buildReportRows();
+    if (rows.length === 0) {
+      toast.error('Tidak ada data laporan untuk diekspor');
+      return;
+    }
+
+    try {
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+      const content = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      await downloadBlobFile(
+        new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        `laporan-bethesda-${format(new Date(), 'yyyyMMdd')}.xlsx`,
+      );
+      toast.success('Excel laporan berhasil diunduh');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengekspor Excel');
+    }
+  };
+
+  const exportReportPdf = async () => {
+    const rows = buildReportRows();
+    if (rows.length === 0) {
+      toast.error('Tidak ada data laporan untuk diekspor');
+      return;
+    }
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF();
+      doc.text('Laporan Rumah Bethesda', 14, 16);
+      autoTable(doc, {
+        startY: 24,
+        head: [['Kategori', 'Nama', 'Jumlah', 'Keterangan']],
+        body: rows.map((row) => [row.Kategori, row.Nama, row.Jumlah, row.Keterangan]),
+      });
+      await downloadBlobFile(doc.output('blob'), `laporan-bethesda-${format(new Date(), 'yyyyMMdd')}.pdf`);
+      toast.success('PDF laporan berhasil diunduh');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengekspor PDF');
+    }
+  };
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -71,12 +140,15 @@ export default function ReportsPage() {
           </h1>
           <p className="text-zinc-500 text-lg font-medium italic mt-2">Visualisasi data kehadiran dan performa program.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button onClick={() => fetchData()} className="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-3xl hover:bg-zinc-200 transition-all">
             <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button className="flex items-center gap-2 px-6 py-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-3xl font-black text-xs uppercase tracking-widest hover-lift shadow-xl">
-            <Download size={18} /> Export Laporan
+          <button onClick={exportReportExcel} className="flex items-center gap-2 px-5 py-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-3xl font-black text-xs uppercase tracking-widest hover-lift shadow-xl">
+            <Download size={18} /> Excel
+          </button>
+          <button onClick={exportReportPdf} className="flex items-center gap-2 px-5 py-4 bg-white text-zinc-900 border border-zinc-200 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-800 rounded-3xl font-black text-xs uppercase tracking-widest hover-lift shadow-xl">
+            <FileText size={18} /> PDF
           </button>
         </div>
       </div>

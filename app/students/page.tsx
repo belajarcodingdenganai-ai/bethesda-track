@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { createStudent, deleteStudent, updateStudent } from '@/app/actions/member';
 import { createManualMissingScan } from '@/app/actions/attendance';
 import MemberQrCard from '@/components/qr/member-qr-card';
+import { downloadTextFile } from '@/lib/download-utils';
 import { THERAPIST_NAMES } from '@/lib/therapy-options';
 
 interface Student {
@@ -75,6 +76,15 @@ function getAvatarCropStyle(imageSize: { width: number; height: number } | null,
     left: `${(100 - widthPct) / 2 + (xOffset / 50) * maxOffsetX}%`,
     top: `${(100 - heightPct) / 2 + (yOffset / 50) * maxOffsetY}%`,
   };
+}
+
+function readImageFile(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function StudentsPage() {
@@ -282,7 +292,7 @@ export default function StudentsPage() {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filteredStudents.length === 0) {
       toast.error('Tidak ada data untuk diekspor');
       return;
@@ -298,15 +308,13 @@ export default function StudentsPage() {
       student._count?.attendances || 0
     ].join(","));
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...csvRows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `data_siswa_${format(new Date(), 'yyyyMMdd')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Data siswa berhasil diekspor ke CSV');
+    try {
+      const csvContent = [headers.join(","), ...csvRows].join("\n");
+      await downloadTextFile(csvContent, `data_siswa_${format(new Date(), 'yyyyMMdd')}.csv`, "text/csv;charset=utf-8");
+      toast.success('Data siswa berhasil diekspor ke CSV');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengunduh data siswa');
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -347,11 +355,11 @@ export default function StudentsPage() {
     setSessions(frequency * 4);
   }, [frequency]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setProfilePreview(url);
+      const dataUrl = await readImageFile(file);
+      setProfilePreview(dataUrl);
       setProfileImageSize(null);
       setAvatarX(0);
       setAvatarY(0);
@@ -363,7 +371,8 @@ export default function StudentsPage() {
     <img
       src={src}
       alt="Avatar siswa"
-      className="absolute max-w-none object-fill"
+      draggable={false}
+      className="absolute max-w-none select-none"
       onLoad={(event) => {
         const image = event.currentTarget;
         setProfileImageSize({ width: image.naturalWidth, height: image.naturalHeight });
@@ -637,7 +646,7 @@ export default function StudentsPage() {
                       </div>
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                       <input type="hidden" name="profileImage" value={profilePreview || selectedStudent?.profileImage || ''} />
-                      <div className="relative mx-auto mt-5 h-36 w-36 overflow-hidden rounded-[32px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl">
+                      <div className="relative mx-auto mt-5 aspect-square h-36 w-36 overflow-hidden rounded-[18px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
                         {profilePreview ? renderAvatar(profilePreview) : (
                           <div className="flex h-full w-full items-center justify-center text-5xl font-black">
                             {(formDraft.name || selectedStudent?.name || 'S').charAt(0)}
@@ -1017,50 +1026,66 @@ export default function StudentsPage() {
       )}
 
       {isParentPortalOpen && (
-        <div className="fixed inset-0 z-[120] bg-zinc-950/30 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl max-h-[88vh] overflow-hidden rounded-[36px] bg-white/95 dark:bg-zinc-950/95 border border-white/50 dark:border-zinc-800/50 shadow-2xl flex flex-col animate-in zoom-in-95 fade-in duration-300">
-            <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[120] bg-zinc-950/30 backdrop-blur-md flex items-end justify-center p-2 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:items-center sm:p-4">
+          <div className="flex w-full max-w-5xl max-h-[calc(100svh-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/50 bg-white/95 shadow-2xl animate-in zoom-in-95 fade-in duration-300 dark:border-zinc-800/50 dark:bg-zinc-950/95 sm:max-h-[88vh] sm:rounded-[36px]">
+            <div className="border-b border-zinc-100 p-3 dark:border-zinc-800 sm:p-8">
+              <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-3 bg-indigo-500/10 text-indigo-600 rounded-2xl">
-                    <Contact2 size={22} />
+                <div className="mb-1 flex items-center gap-2 sm:mb-2 sm:gap-3">
+                  <div className="rounded-2xl bg-indigo-500/10 p-2 text-indigo-600 sm:p-3">
+                    <Contact2 size={18} className="sm:h-[22px] sm:w-[22px]" />
                   </div>
-                  <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">
+                  <h2 className="text-xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-3xl sm:tracking-tighter">
                     Parent Portal Active
                   </h2>
                 </div>
-                <p className="text-sm font-medium text-zinc-500 max-w-2xl">
+                <p className="max-w-2xl text-xs font-medium leading-5 text-zinc-500 sm:text-sm sm:leading-6">
                   Daftar siswa yang sudah punya kontak orang tua dan siap menerima akses portal untuk melihat kehadiran, sisa sesi, QR, dan histori terapi.
                 </p>
+                <div className="mt-2 grid grid-cols-3 gap-1.5 sm:hidden">
+                  <div className="rounded-xl bg-indigo-50 px-2 py-1 text-center dark:bg-indigo-950/30">
+                    <p className="text-[8px] font-black uppercase tracking-[0.08em] text-indigo-500">Portal</p>
+                    <p className="text-base font-black leading-none text-zinc-900 dark:text-zinc-100">{portalActiveStudents.length}</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 px-2 py-1 text-center dark:bg-emerald-950/30">
+                    <p className="text-[8px] font-black uppercase tracking-[0.08em] text-emerald-600">WA</p>
+                    <p className="text-base font-black leading-none text-zinc-900 dark:text-zinc-100">{portalActiveStudents.filter((student) => student.parentPhone).length}</p>
+                  </div>
+                  <div className="rounded-xl bg-sky-50 px-2 py-1 text-center dark:bg-sky-950/30">
+                    <p className="text-[8px] font-black uppercase tracking-[0.08em] text-sky-600">QR</p>
+                    <p className="text-base font-black leading-none text-zinc-900 dark:text-zinc-100">{portalActiveStudents.filter((student) => student.qrCode).length}</p>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setIsParentPortalOpen(false)}
-                className="p-3 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-all"
+                className="rounded-2xl p-3 transition-all hover:bg-zinc-100 dark:hover:bg-zinc-900"
               >
                 <X size={20} />
               </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-8 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="p-4 rounded-3xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500">Portal Aktif</p>
-                <p className="text-3xl font-black mt-2">{portalActiveStudents.length}</p>
-              </div>
-              <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">WhatsApp Ready</p>
-                <p className="text-3xl font-black mt-2">{portalActiveStudents.filter((student) => student.parentPhone).length}</p>
-              </div>
-              <div className="p-4 rounded-3xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/30">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-600">Barcode Ready</p>
-                <p className="text-3xl font-black mt-2">{portalActiveStudents.filter((student) => student.qrCode).length}</p>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="hidden grid-cols-3 gap-2 border-b border-zinc-100 p-3 dark:border-zinc-800 sm:grid sm:gap-4 sm:p-8">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 dark:border-indigo-900/30 dark:bg-indigo-950/20 sm:rounded-3xl sm:p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-indigo-500 sm:text-[10px] sm:tracking-[0.2em]">Portal</p>
+                <p className="mt-1 text-2xl font-black sm:mt-2 sm:text-3xl">{portalActiveStudents.length}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900/30 dark:bg-emerald-950/20 sm:rounded-3xl sm:p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-600 sm:text-[10px] sm:tracking-[0.2em]">WA</p>
+                <p className="mt-1 text-2xl font-black sm:mt-2 sm:text-3xl">{portalActiveStudents.filter((student) => student.parentPhone).length}</p>
+              </div>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-3 dark:border-sky-900/30 dark:bg-sky-950/20 sm:rounded-3xl sm:p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.12em] text-sky-600 sm:text-[10px] sm:tracking-[0.2em]">QR</p>
+                <p className="mt-1 text-2xl font-black sm:mt-2 sm:text-3xl">{portalActiveStudents.filter((student) => student.qrCode).length}</p>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
               {portalActiveStudents.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
                   {portalActiveStudents.map((student) => (
-                    <div key={student.id} className="p-5 rounded-3xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/50">
+                    <div key={student.id} className="rounded-2xl border border-zinc-200/60 bg-white/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50 sm:rounded-3xl sm:p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3">
                           <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm">

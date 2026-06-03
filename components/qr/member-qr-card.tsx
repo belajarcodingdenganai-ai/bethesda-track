@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Download, QrCode } from 'lucide-react';
+import { toast } from 'sonner';
+import { downloadDataUrlFile } from '@/lib/download-utils';
 import { generateQRCode } from '@/lib/qr-utils';
 
 interface MemberQrCardProps {
@@ -41,7 +43,7 @@ export default function MemberQrCard({ name, registrationNo, qrCode, roleLabel }
     const dataUrl = qrDataUrl || await generateQRCode(qrCode, { width: 420, margin: 2 });
     const qrImage = new Image();
 
-    qrImage.onload = () => {
+    qrImage.onload = async () => {
       const canvas = document.createElement('canvas');
       const width = 800;
       const height = 1040;
@@ -81,10 +83,15 @@ export default function MemberQrCard({ name, registrationNo, qrCode, roleLabel }
       ctx.font = '600 18px Arial';
       ctx.fillText('Rumah Bethesda', width / 2, 926);
 
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
-      link.download = `${sanitizeFilename(roleLabel)}-${sanitizeFilename(registrationNo)}-${sanitizeFilename(name)}.png`;
-      link.click();
+      try {
+        await downloadDataUrlFile(
+          canvas.toDataURL('image/png'),
+          `${sanitizeFilename(roleLabel)}-${sanitizeFilename(registrationNo)}-${sanitizeFilename(name)}.png`,
+        );
+        toast.success('QR berhasil diunduh');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Gagal mengunduh QR');
+      }
     };
 
     qrImage.src = dataUrl;

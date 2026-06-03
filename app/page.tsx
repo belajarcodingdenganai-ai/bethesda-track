@@ -8,6 +8,7 @@ import { getTherapyPackages, addTherapyPackage } from '@/app/actions/member';
 import { createManualMissingScan, deleteAttendanceRecord, getAttendanceHistory, getDashboardStats, updateAttendanceRecord } from '@/app/actions/attendance';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { downloadBlobFile } from '@/lib/download-utils';
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from '@/lib/therapy-options';
 
 const SCHEDULES = THERAPY_SCHEDULES;
@@ -171,7 +172,11 @@ export default function DashboardPage() {
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Sesi Terapi");
-      XLSX.writeFile(wb, "therapy-sessions.xlsx");
+      const content = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      await downloadBlobFile(
+        new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        'therapy-sessions.xlsx'
+      );
       toast.success('Excel berhasil diunduh');
     } catch (error) {
       toast.error('Gagal memuat modul Excel');
@@ -186,7 +191,7 @@ export default function DashboardPage() {
       doc.text('Laporan Sesi - Rumah Bethesda', 14, 15);
       const tableData = filteredPackages.map(pkg => [pkg.student.name, pkg.program.name, pkg.therapistName || '-', `${pkg.usedSessions}/${pkg.totalSessions}`, pkg.totalSessions - pkg.usedSessions, pkg.status]);
       autoTable(doc, { head: [['Nama', 'Program', 'Terapis', 'Progress', 'Sisa', 'Status']], body: tableData, startY: 25, theme: 'grid', headStyles: { fillColor: [79, 70, 229] } });
-      doc.save('therapy-report.pdf');
+      await downloadBlobFile(doc.output('blob'), 'therapy-report.pdf');
       toast.success('PDF berhasil dibuat');
     } catch (error) {
       toast.error('Gagal memuat modul PDF');
@@ -323,8 +328,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="rounded-[32px] border border-white/80 bg-white/80 p-5 shadow-xl shadow-zinc-200/60 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-900/75 dark:shadow-black/20 sm:p-7 lg:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4 sm:gap-5">
-            <img src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" className="h-14 w-14 shrink-0 rounded-full bg-white object-cover shadow-lg ring-1 ring-blue-100 sm:h-16 sm:w-16" />
+          <div className="flex items-start gap-4 sm:items-center sm:gap-5">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-lg ring-1 ring-blue-100 sm:h-20 sm:w-20">
+              <img src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" className="h-full w-full rounded-full object-contain object-center" />
+            </div>
             <div className="min-w-0">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-600">Dashboard Operasional</p>
               <h1 className="text-3xl font-black leading-tight tracking-tight text-zinc-950 dark:text-white sm:text-4xl lg:text-5xl">

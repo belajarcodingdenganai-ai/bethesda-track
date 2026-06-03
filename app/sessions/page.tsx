@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { addTherapyPackage } from "@/app/actions/member";
 import { createManualMissingScan, deleteAttendanceRecord, updateAttendanceRecord } from "@/app/actions/attendance";
+import { downloadBlobFile, downloadTextFile } from "@/lib/download-utils";
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from "@/lib/therapy-options";
 import {
   Search,
@@ -236,16 +237,6 @@ const isTimeInRange = (time: string, range: string) => {
   return time >= start && time <= end;
 };
 
-const downloadBlob = (content: BlobPart, filename: string, type: string) => {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
 const toCsv = (rows: Array<Record<string, string | number>>) => {
   if (rows.length === 0) return "";
 
@@ -258,7 +249,7 @@ const toCsv = (rows: Array<Record<string, string | number>>) => {
   ].join("\n");
 };
 
-const exportHistoryToCsv = (student: Student, history: any[]) => {
+const exportHistoryToCsv = async (student: Student, history: any[]) => {
   if (history.length === 0) {
     toast.error("Belum ada riwayat untuk diekspor");
     return;
@@ -277,8 +268,12 @@ const exportHistoryToCsv = (student: Student, history: any[]) => {
     }))
   );
 
-  downloadBlob(csv, `riwayat-${student.registrationNo}.csv`, "text/csv;charset=utf-8");
-  toast.success("Riwayat berhasil diekspor");
+  try {
+    await downloadTextFile(csv, `riwayat-${student.registrationNo}.csv`, "text/csv;charset=utf-8");
+    toast.success("Riwayat berhasil diekspor");
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Gagal mengekspor riwayat");
+  }
 };
 
 const getDateTimeLocalValue = (date = new Date()) => {
@@ -1099,7 +1094,11 @@ export default function SessionsPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sesi Terapi");
-    XLSX.writeFile(wb, "sesi-terapi.xlsx");
+    const content = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    await downloadBlobFile(
+      new Blob([content], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+      "sesi-terapi.xlsx"
+    );
     toast.success("Excel berhasil diunduh");
   };
 
@@ -1126,7 +1125,7 @@ export default function SessionsPage() {
         student.status,
       ]),
     });
-    doc.save("sesi-terapi.pdf");
+    await downloadBlobFile(doc.output("blob"), "sesi-terapi.pdf");
     toast.success("PDF berhasil diunduh");
   };
 

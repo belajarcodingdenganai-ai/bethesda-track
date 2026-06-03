@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { createTeacher, deleteTeacher, syncDefaultTherapists, updateTeacher } from '@/app/actions/member';
 import MemberQrCard from '@/components/qr/member-qr-card';
+import { downloadTextFile } from '@/lib/download-utils';
 
 interface Teacher {
   id: string;
@@ -53,7 +54,7 @@ const formatAttendanceTime = (value: string) =>
     timeZone: 'Asia/Jakarta',
   }).format(new Date(value));
 
-const downloadCsv = (rows: Array<Record<string, string | number>>, filename: string) => {
+const downloadCsv = async (rows: Array<Record<string, string | number>>, filename: string) => {
   if (rows.length === 0) {
     toast.error('Belum ada data kehadiran untuk diekspor');
     return;
@@ -65,13 +66,8 @@ const downloadCsv = (rows: Array<Record<string, string | number>>, filename: str
     headers.map(escapeCell).join(','),
     ...rows.map((row) => headers.map((header) => escapeCell(row[header])).join(',')),
   ].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  await downloadTextFile(csv, filename, 'text/csv;charset=utf-8');
+  toast.success('Kehadiran guru berhasil diekspor');
 };
 
 function getAvatarCropStyle(imageSize: { width: number; height: number } | null, xOffset: number, yOffset: number, zoom: number) {
@@ -221,7 +217,8 @@ export default function TeachersPage() {
     <img
       src={src}
       alt="Avatar guru"
-      className="absolute max-w-none object-fill"
+      draggable={false}
+      className="absolute max-w-none select-none"
       onLoad={(event) => {
         const image = event.currentTarget;
         setTeacherPhotoSize({ width: image.naturalWidth, height: image.naturalHeight });
@@ -347,9 +344,13 @@ export default function TeachersPage() {
     Catatan: item.notes || '',
   }));
 
-  const exportSelectedAttendance = () => {
+  const exportSelectedAttendance = async () => {
     if (!selectedTeacher) return;
-    downloadCsv(attendanceRows(attendanceHistory), `kehadiran-${selectedTeacher.teacherId}.csv`);
+    try {
+      await downloadCsv(attendanceRows(attendanceHistory), `kehadiran-${selectedTeacher.teacherId}.csv`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengekspor kehadiran guru');
+    }
   };
 
   const exportAllAttendance = async () => {
@@ -358,7 +359,7 @@ export default function TeachersPage() {
       const response = await fetch('/api/teachers/attendance', { cache: 'no-store' });
       const result = await response.json();
       const rows = Array.isArray(result.data) ? result.data : [];
-      downloadCsv(attendanceRows(rows), 'kehadiran-guru.csv');
+      await downloadCsv(attendanceRows(rows), 'kehadiran-guru.csv');
     } catch (error) {
       toast.error('Gagal mengekspor kehadiran guru');
     } finally {
@@ -467,7 +468,7 @@ export default function TeachersPage() {
       {/* Teacher Wizard Modal */}
       {modalMode && modalMode !== 'success' && (
         <div className="fixed inset-0 bg-zinc-950/20 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className={`bg-white dark:bg-zinc-900 w-full rounded-[32px] shadow-2xl animate-in zoom-in-95 ${modalMode === 'view' ? 'max-w-4xl max-h-[88vh] overflow-hidden p-6' : 'max-w-2xl p-10'}`}>
+          <div className={`bg-white dark:bg-zinc-900 w-full rounded-[32px] shadow-2xl animate-in zoom-in-95 ${modalMode === 'view' ? 'max-w-4xl max-h-[88vh] overflow-hidden p-5 sm:p-6' : 'max-w-2xl p-5 sm:p-10'}`}>
 <div className="mb-6 flex flex-col gap-4 lg:flex-row items-start justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -511,12 +512,12 @@ export default function TeachersPage() {
               <div className="max-h-[calc(88vh-112px)] overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_1fr]">
                   <div className="space-y-4">
-                    <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5 text-center dark:border-zinc-800 dark:bg-zinc-950/50">
-                      <div className="mx-auto h-20 w-20 overflow-hidden rounded-3xl bg-indigo-600 text-white shadow-lg">
+                    <div className="rounded-3xl border border-zinc-200 bg-white p-5 text-center dark:border-zinc-800 dark:bg-zinc-950/40">
+                      <div className="relative mx-auto aspect-square h-36 w-36 overflow-hidden rounded-[18px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
                         {selectedTeacher.profileImage || selectedTeacher.user?.profileImage ? (
                           <img src={selectedTeacher.profileImage || selectedTeacher.user?.profileImage} alt={selectedTeacher.name} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-3xl font-black">
+                          <div className="flex h-full w-full items-center justify-center text-5xl font-black">
                             {(selectedTeacher.name || selectedTeacher.user?.name || 'G').charAt(0)}
                           </div>
                         )}
@@ -611,22 +612,11 @@ export default function TeachersPage() {
               </div>
             ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950/50">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative h-20 w-20 overflow-hidden rounded-3xl bg-indigo-600 text-white shadow-lg">
-                      {teacherPhotoPreview ? (
-                        renderTeacherAvatar(teacherPhotoPreview)
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-3xl font-black">
-                          {(teacherDraft.name || selectedTeacher?.name || 'G').charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Foto Profil Guru</p>
-                      <p className="mt-1 text-xs font-bold text-zinc-500">Edit avatar kotak guru dengan zoom dan posisi foto.</p>
-                    </div>
+              <div className="rounded-3xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950/40">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">Edit Avatar Kotak</p>
+                    <p className="text-xs font-bold text-zinc-500">Upload, zoom, dan geser foto sebelum disimpan.</p>
                   </div>
                   <button
                     type="button"
@@ -638,6 +628,15 @@ export default function TeachersPage() {
                 </div>
                 <input ref={teacherPhotoInputRef} type="file" accept="image/*" onChange={handleTeacherPhotoSelect} className="hidden" />
                 <input type="hidden" name="profileImage" value={teacherPhotoPreview || teacherDraft.profileImage || ''} />
+                <div className="relative mx-auto mt-5 aspect-square h-36 w-36 overflow-hidden rounded-[18px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
+                  {teacherPhotoPreview ? (
+                    renderTeacherAvatar(teacherPhotoPreview)
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-5xl font-black">
+                      {(teacherDraft.name || selectedTeacher?.name || 'G').charAt(0)}
+                    </div>
+                  )}
+                </div>
                 {teacherPhotoPreview && (
                   <div className="mt-5 space-y-4">
                     <label className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-zinc-400">

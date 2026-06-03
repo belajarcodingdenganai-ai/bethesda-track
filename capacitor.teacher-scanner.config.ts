@@ -3,16 +3,16 @@ import { CapacitorConfig } from '@capacitor/cli';
 const serverUrl = (
   process.env.CAPACITOR_SERVER_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'http://192.168.12.223:3000'
+  'https://bethesda-track.vercel.app'
 ).replace(/\/$/, '');
 
 const config: CapacitorConfig = {
   appId: 'com.bethesda.teacher.scanner',
-  appName: 'BethScan Rumah Bethesda',
+  appName: 'SmartHub',
   webDir: 'out',
   server: {
     url: `${serverUrl}/teacher-scanner`,
-    cleartext: true,
+    cleartext: false,
   },
 };
 

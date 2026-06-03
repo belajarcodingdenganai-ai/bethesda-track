@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Rumah Bethesda",
-    short_name: "Bethesda",
-    description: "Portal kehadiran guru, siswa, dan sesi Rumah Bethesda.",
+    name: "SmartHub",
+    short_name: "SmartHub",
+    description: "Portal Rumah Bethesda dan Terapi untuk kehadiran guru, siswa, dan sesi terapi.",
     start_url: "/",
     scope: "/",
     display: "standalone",

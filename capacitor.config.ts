@@ -3,15 +3,15 @@ import { CapacitorConfig } from '@capacitor/cli';
 const serverUrl =
   process.env.CAPACITOR_SERVER_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'http://192.168.12.223:3000';
+  'https://bethesda-track.vercel.app';
 
 const config: CapacitorConfig = {
   appId: 'com.bethesda.track',
-  appName: 'Rumah Bethesda',
+  appName: 'SmartHub',
   webDir: 'out',
   server: {
-    url: serverUrl,
-    cleartext: true
+    url: serverUrl.replace(/\/$/, ''),
+    cleartext: false
   }
 };
 

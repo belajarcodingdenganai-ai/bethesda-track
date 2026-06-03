@@ -22,10 +22,10 @@ export function Sidebar() {
           <BrandMark />
           <div className="flex flex-col leading-none">
             <span className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-50">
-              Therapy<span className="text-indigo-600">OS</span>
+              Smart<span className="text-indigo-600">Hub</span>
             </span>
             <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-              Bethesda Special School
+              Rumah Bethesda dan Terapi
             </span>
           </div>
         </Link>
@@ -90,8 +90,8 @@ function SidebarContent({ pathname, onNavigate, onSignOut }: { pathname: string;
     <>
       <div className="mb-10 flex flex-col gap-1 px-2">
         <BrandMark />
-        <span className="mt-2 text-2xl font-black tracking-tight">Therapy<span className="text-indigo-600">OS</span></span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Bethesda Special School</span>
+        <span className="mt-2 text-2xl font-black tracking-tight">Smart<span className="text-indigo-600">Hub</span></span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Rumah Bethesda dan Terapi</span>
       </div>
 
       <div className="flex-1 space-y-8">
@@ -174,8 +174,8 @@ function SidebarContent({ pathname, onNavigate, onSignOut }: { pathname: string;
         </button>
 
         <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
-          <div className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Portal Sekolah</div>
-          <div className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-medium italic">Bethesda Special School v1.0</div>
+          <div className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">SmartHub</div>
+          <div className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-medium italic">Rumah Bethesda dan Terapi v1.0</div>
         </div>
       </div>
     </>
