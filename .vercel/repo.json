@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_8T8QbbaYnw4vEVc7YmpayYoiO9Si",
+      "name": "bethesda-track",
+      "directory": ".",
+      "orgId": "team_5zeINN7zsqQjZ4dhYQzmR1bC"
+    }
+  ]
+}

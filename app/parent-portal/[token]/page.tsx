@@ -93,16 +93,16 @@ export default function ParentPortalPage() {
   const adminWhatsAppHref = `https://wa.me/${adminWhatsAppNumber}?text=${adminWhatsAppMessage}`;
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50">
-      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#f6f7fb] text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <div className="safe-area-top bg-white/95 shadow-sm shadow-zinc-200/60 ring-1 ring-zinc-200/70 backdrop-blur-xl dark:bg-zinc-900/95 dark:shadow-black/20 dark:ring-zinc-800">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-5">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 overflow-hidden rounded-full bg-white flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-blue-100">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-md shadow-indigo-500/10 ring-1 ring-blue-100 sm:h-12 sm:w-12">
               <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={48} height={48} className="h-full w-full object-cover" priority />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-600">Parent Portal</p>
-              <h1 className="text-xl font-black tracking-tight">Rumah Bethesda</h1>
+              <h1 className="truncate text-lg font-black tracking-tight sm:text-xl">Rumah Bethesda</h1>
             </div>
           </div>
           <a
@@ -117,52 +117,52 @@ export default function ParentPortalPage() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-5 py-8 space-y-6">
-        <section className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.65fr] gap-6">
-          <div className="rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 overflow-hidden relative">
+      <main className="mx-auto max-w-6xl space-y-4 px-4 py-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:space-y-6 sm:px-5 sm:py-8">
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_0.65fr] lg:gap-6">
+          <div className="relative overflow-hidden rounded-[26px] border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-[32px] sm:p-8">
             <div className="relative">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-                <div>
-                  <p className="text-sm font-bold text-zinc-500">Selamat datang, Orang Tua/Wali</p>
-                  <h2 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">{student.name}</h2>
-                  <p className="text-sm text-zinc-500 mt-2">
-                    {student.nickname ? `Nama panggilan: ${student.nickname}` : student.registrationNo}
-                  </p>
-                </div>
-                <div className="w-24 h-24 overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-500 to-sky-500 text-white flex items-center justify-center text-4xl font-black shadow-xl">
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-gradient-to-br from-indigo-500 to-sky-500 text-3xl font-black text-white shadow-lg shadow-indigo-500/20 ring-4 ring-indigo-50 dark:ring-indigo-950/40 sm:h-24 sm:w-24 sm:rounded-[28px] sm:text-4xl">
                   {student.profileImage ? (
                     <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
                   ) : (
                     student.name?.charAt(0)
                   )}
                 </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-400 sm:text-sm sm:normal-case sm:tracking-normal sm:text-zinc-500">Selamat datang, Orang Tua/Wali</p>
+                  <h2 className="mt-1 break-words text-2xl font-black tracking-tight text-zinc-950 dark:text-white sm:mt-2 sm:text-5xl">{student.name}</h2>
+                  <p className="mt-1 text-sm font-semibold text-zinc-500 sm:mt-2">
+                    {student.nickname ? `Nama panggilan: ${student.nickname}` : student.registrationNo}
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8">
-                <div className="p-4 rounded-3xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:gap-3">
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/30 sm:rounded-3xl sm:p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Sisa Sesi</p>
-                  <p className="text-3xl font-black mt-2">{remainingSessions}</p>
+                  <p className="mt-2 text-2xl font-black sm:text-3xl">{remainingSessions}</p>
                 </div>
-                <div className="p-4 rounded-3xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/30 sm:rounded-3xl sm:p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Hadir</p>
-                  <p className="text-3xl font-black mt-2">{student._count?.attendances || 0}</p>
+                  <p className="mt-2 text-2xl font-black sm:text-3xl">{student._count?.attendances || 0}</p>
                 </div>
-                <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40">
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/30 sm:rounded-3xl sm:p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Status Paket</p>
-                  <p className="text-xl font-black mt-3">{activePackage?.status || 'Belum Ada'}</p>
+                  <p className="mt-2 break-words text-base font-black sm:mt-3 sm:text-xl">{activePackage?.status || 'Belum Ada'}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[32px] bg-zinc-900 text-white p-6 sm:p-8 flex flex-col justify-between gap-8">
+          <div className="flex flex-col justify-between gap-6 rounded-[26px] bg-zinc-900 p-5 text-white shadow-sm sm:rounded-[32px] sm:p-8 lg:gap-8">
             <div>
               <div className="flex items-center gap-2 text-emerald-300">
                 <ShieldCheck size={20} />
                 <p className="text-xs font-black uppercase tracking-[0.2em]">Akses Khusus Parent</p>
               </div>
-              <h3 className="text-2xl font-black tracking-tight mt-4">Progress terapi anak Anda</h3>
-              <p className="text-sm text-zinc-400 mt-2">
+              <h3 className="mt-4 text-xl font-black tracking-tight sm:text-2xl">Progress terapi anak Anda</h3>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
                 Link ini hanya menampilkan data anak yang terhubung dengan portal parent ini.
               </p>
             </div>
@@ -182,12 +182,12 @@ export default function ParentPortalPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6">
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+          <div className="rounded-[26px] border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-[32px] sm:p-6 lg:col-span-2">
             <div className="flex items-center justify-between gap-3 mb-5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400">Riwayat</p>
-                <h3 className="text-2xl font-black tracking-tight">Kehadiran Terbaru</h3>
+                <h3 className="text-xl font-black tracking-tight sm:text-2xl">Kehadiran Terbaru</h3>
               </div>
               <CalendarDays size={22} className="text-indigo-600" />
             </div>
@@ -197,22 +197,22 @@ export default function ParentPortalPage() {
                 recentAttendances.map((attendance: any) => (
                   <div
                     key={attendance.id}
-                    className="p-4 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="flex flex-col justify-between gap-3 rounded-2xl border border-zinc-100 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950 sm:flex-row sm:items-center sm:rounded-3xl"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600">
                         <CheckCircle2 size={20} />
                       </div>
-                      <div>
-                        <p className="font-black">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black leading-5 sm:text-base">
                           {format(new Date(attendance.checkIn), 'EEEE, dd MMMM yyyy', { locale: id })}
                         </p>
-                        <p className="text-sm text-zinc-500">
+                        <p className="mt-0.5 text-sm leading-5 text-zinc-500">
                           {attendance.program?.name || 'Terapi'} dengan {attendance.teacher?.user?.name || 'Terapis'}
                         </p>
                       </div>
                     </div>
-                    <div className="text-sm font-bold text-zinc-600 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-bold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
                       <Clock size={15} />
                       {format(new Date(attendance.checkIn), 'HH:mm')}
                       {attendance.checkOut ? ` - ${format(new Date(attendance.checkOut), 'HH:mm')}` : ''}
@@ -228,8 +228,8 @@ export default function ParentPortalPage() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="rounded-[26px] border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-[32px] sm:p-6">
               <div className="flex items-center gap-3 mb-5">
                 <GraduationCap size={22} className="text-indigo-600" />
                 <h3 className="text-xl font-black tracking-tight">Program Saat Ini</h3>
@@ -248,19 +248,19 @@ export default function ParentPortalPage() {
               </div>
             </div>
 
-            <div className="rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6">
+            <div className="rounded-[26px] border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-[32px] sm:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <MessageSquare size={22} className="text-emerald-600" />
                 <h3 className="text-xl font-black tracking-tight">Butuh Bantuan?</h3>
               </div>
-              <p className="text-sm text-zinc-500 mb-5">
+              <p className="mb-5 text-sm leading-6 text-zinc-500">
                 Hubungi admin sekolah untuk perubahan jadwal, konfirmasi sesi, atau pertanyaan paket.
               </p>
               <a
                 href={adminWhatsAppHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-600 text-white font-black text-sm hover:bg-emerald-700 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-700"
               >
                 <MessageSquare size={16} />
                 Hubungi Admin

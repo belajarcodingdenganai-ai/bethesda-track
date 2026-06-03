@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NotificationCenter />
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 pb-24 pt-20 md:pt-0 md:p-8 lg:p-12 scroll-smooth">
+        <main className="flex-1 overflow-y-auto px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))] md:p-8 lg:p-12 scroll-smooth">
           <div className="max-w-[1600px] mx-auto">{children}</div>
         </main>
 

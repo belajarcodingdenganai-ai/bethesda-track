@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Filter, Download, Eye, Edit2, Trash2, Plus, User, Mail, Phone, Briefcase, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Search, Filter, Download, Edit2, Trash2, Plus, User, Mail, Phone, Briefcase, ChevronRight, ChevronLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { createTeacher, deleteTeacher, syncDefaultTherapists, updateTeacher } from '@/app/actions/member';
@@ -99,11 +99,20 @@ export default function TeachersPage() {
   const fetchTeachers = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const response = await fetch('/api/teachers', { cache: 'no-store' });
+      const url = process.env.NEXT_PUBLIC_APP_URL 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/teachers`
+        : '/api/teachers';
+      const response = await fetch(url, { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
       const data = await response.json();
       setTeachers(Array.isArray(data) ? data : (data.data || []));
-    } catch (error) {
-      toast.error('Gagal memuat data guru');
+    } catch (error: any) {
+      console.error('Error fetching teachers:', error);
+      if (!silent) toast.error('Gagal memuat data guru: ' + error.message);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -130,11 +139,19 @@ export default function TeachersPage() {
   const fetchTeacherAttendance = async (teacherDbId: string) => {
     try {
       setIsLoadingAttendance(true);
-      const response = await fetch(`/api/teachers/attendance?teacherId=${teacherDbId}`, { cache: 'no-store' });
+      const url = process.env.NEXT_PUBLIC_APP_URL 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/teachers/attendance?teacherId=${teacherDbId}`
+        : `/api/teachers/attendance?teacherId=${teacherDbId}`;
+      const response = await fetch(url, { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
       const result = await response.json();
       setAttendanceHistory(Array.isArray(result.data) ? result.data : []);
-    } catch (error) {
-      toast.error('Gagal memuat riwayat kehadiran guru');
+    } catch (error: any) {
+      toast.error('Gagal memuat riwayat kehadiran guru: ' + error.message);
       setAttendanceHistory([]);
     } finally {
       setIsLoadingAttendance(false);
@@ -308,38 +325,34 @@ export default function TeachersPage() {
               <th className="px-10 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Guru</th>
               <th className="px-6 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">ID & Divisi</th>
               <th className="px-6 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em]">Kontak</th>
-              <th className="px-10 py-6 font-black text-zinc-400 uppercase text-[10px] tracking-[0.3em] text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {filteredTeachers.map((teacher) => (
               <tr key={teacher.id} className="group hover:bg-white/50 transition-all duration-500">
                 <td className="px-10 py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold">
-                      {teacher.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="font-black text-zinc-900 dark:text-zinc-100">{teacher.name}</div>
-                      <div className="text-[10px] font-bold text-zinc-400 uppercase">{teacher.position}</div>
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenModal('view', teacher)}
+                  className="flex w-full items-center gap-4 text-left transition-all hover:text-indigo-600"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold">
+                    {teacher.name.charAt(0)}
                   </div>
-                </td>
-                <td className="px-6 py-4 font-mono text-xs">
-                   <div className="font-bold">{teacher.teacherId}</div>
-                   <div className="text-zinc-400">{teacher.division}</div>
-                </td>
-                <td className="px-6 py-4 text-zinc-500">
-                  {teacher.phone}
-                </td>
-                <td className="px-10 py-6 text-right">
-                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => handleOpenModal('view', teacher)} className="p-3 bg-zinc-100 rounded-2xl"><Eye size={18} /></button>
-                      <button onClick={() => handleOpenModal('edit', teacher)} className="p-3 bg-zinc-100 rounded-2xl"><Edit2 size={18} /></button>
-                      <button onClick={() => handleDelete(teacher)} className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><Trash2 size={18} /></button>
-                   </div>
-                </td>
-              </tr>
+                  <div>
+                    <div className="font-black text-zinc-900 dark:text-zinc-100">{teacher.name}</div>
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase">{teacher.position}</div>
+                  </div>
+                </button>
+              </td>
+              <td className="px-6 py-4 font-mono text-xs">
+                 <div className="font-bold">{teacher.teacherId}</div>
+                 <div className="text-zinc-400">{teacher.division}</div>
+              </td>
+              <td className="px-6 py-4 text-zinc-500">
+                {teacher.phone}
+              </td>
+            </tr>
             ))}
           </tbody>
         </table>
@@ -349,11 +362,31 @@ export default function TeachersPage() {
       {modalMode && modalMode !== 'success' && (
         <div className="fixed inset-0 bg-zinc-950/20 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className={`bg-white dark:bg-zinc-900 w-full rounded-[32px] shadow-2xl animate-in zoom-in-95 ${modalMode === 'view' ? 'max-w-4xl max-h-[88vh] overflow-hidden p-6' : 'max-w-2xl p-10'}`}>
-            <div className="mb-6 flex items-center justify-between gap-4">
+<div className="mb-6 flex flex-col gap-4 lg:flex-row items-start justify-between">
               <div>
-                <h2 className="text-3xl font-black tracking-tighter">
-                  {modalMode === 'add' ? 'Tambah Guru Baru' : modalMode === 'edit' ? 'Edit Guru' : 'Detail Guru'}
-                </h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-3xl font-black tracking-tighter">
+                    {modalMode === 'add' ? 'Tambah Guru Baru' : modalMode === 'edit' ? 'Edit Guru' : 'Detail Guru'}
+                  </h2>
+                  {modalMode === 'view' && selectedTeacher && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => selectedTeacher && handleOpenModal('edit', selectedTeacher)}
+                        className="rounded-2xl bg-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => selectedTeacher && handleDelete(selectedTeacher)}
+                        className="rounded-2xl bg-rose-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-rose-600 transition-all hover:bg-rose-100"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {modalMode === 'view' && selectedTeacher && (
                   <p className="mt-1 text-sm font-bold text-zinc-500">{selectedTeacher.teacherId} • {selectedTeacher.position}</p>
                 )}

@@ -275,7 +275,14 @@ export default function SettingsPage() {
   );
 }
 
-function TabButton({ active, onClick, icon, label }: any) {
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}
+
+function TabButton({ active, onClick, icon, label }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -291,7 +298,12 @@ function TabButton({ active, onClick, icon, label }: any) {
   );
 }
 
-function SectionHeader({ title, description }: any) {
+interface SectionHeaderProps {
+  title: string;
+  description: string;
+}
+
+function SectionHeader({ title, description }: SectionHeaderProps) {
   return (
     <div>
       <h2 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h2>
@@ -300,7 +312,13 @@ function SectionHeader({ title, description }: any) {
   );
 }
 
-function SettingsCard({ title, value, icon }: any) {
+interface SettingsCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+}
+
+function SettingsCard({ title, value, icon }: SettingsCardProps) {
   return (
     <div className="p-6 glass-card rounded-3xl flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -317,7 +335,14 @@ function SettingsCard({ title, value, icon }: any) {
   );
 }
 
-function ToggleCard({ title, description, icon, enabled }: any) {
+interface ToggleCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  enabled: boolean;
+}
+
+function ToggleCard({ title, description, icon, enabled }: ToggleCardProps) {
   return (
     <div className="p-6 glass-card rounded-3xl flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -336,7 +361,12 @@ function ToggleCard({ title, description, icon, enabled }: any) {
   );
 }
 
-function StatMini({ label, value }: any) {
+interface StatMiniProps {
+  label: string;
+  value: string;
+}
+
+function StatMini({ label, value }: StatMiniProps) {
   return (
     <div>
       <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">{label}</p>

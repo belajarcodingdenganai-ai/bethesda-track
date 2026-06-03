@@ -1,26 +1,31 @@
 "use client";
 
-import { LayoutDashboard, QrCode, Settings, CreditCard, ChevronUp, GraduationCap, Presentation, Menu, X, BarChart3 } from "lucide-react";
+import { LayoutDashboard, QrCode, Settings, CreditCard, ChevronUp, GraduationCap, Presentation, Menu, X, BarChart3, LogOut } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import Image from "next/image";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between px-4 border-b border-zinc-200/70 bg-white/90 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
-        <Link href="/" className="flex items-center gap-3">
+      <header className="fixed inset-x-0 top-0 z-50 flex h-auto min-h-16 items-center justify-between px-4 pt-safe border-b border-zinc-200/70 bg-white/90 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/90 md:hidden">
+        <Link href="/" className="flex items-center gap-3 py-3">
           <BrandMark />
           <div className="flex flex-col leading-none">
             <span className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-50">
-              Rumah Bethesda
+              Therapy<span className="text-indigo-600">OS</span>
             </span>
             <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-              Terapi
+              Bethesda Special School
             </span>
           </div>
         </Link>
@@ -56,6 +61,16 @@ export function Sidebar() {
                 <BarChart3 size={18} />
                 <span className="text-sm font-bold">Laporan</span>
              </Link>
+             <button
+               onClick={() => {
+                 setMobileMenuOpen(false);
+                 handleSignOut();
+               }}
+               className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-black uppercase tracking-widest text-zinc-700 transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+             >
+               <LogOut size={18} />
+               Keluar
+             </button>
              <div className="mt-4 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 text-center">
                 <p className="text-[9px] font-black text-indigo-600 uppercase">Version 1.0.0</p>
              </div>
@@ -64,19 +79,19 @@ export function Sidebar() {
       )}
 
       <aside className="sticky top-0 z-50 hidden h-screen w-72 flex-col border-r border-zinc-200/50 bg-white/50 p-6 backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-950/50 md:flex">
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} onSignOut={handleSignOut} />
       </aside>
     </>
   );
 }
 
-function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function SidebarContent({ pathname, onNavigate, onSignOut }: { pathname: string; onNavigate?: () => void; onSignOut: () => void }) {
   return (
     <>
       <div className="mb-10 flex flex-col gap-1 px-2">
         <BrandMark />
-        <span className="mt-2 text-2xl font-black tracking-tight">Rumah Bethesda</span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Terapi</span>
+        <span className="mt-2 text-2xl font-black tracking-tight">Therapy<span className="text-indigo-600">OS</span></span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Bethesda Special School</span>
       </div>
 
       <div className="flex-1 space-y-8">
@@ -150,22 +165,17 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       </div>
 
       <div className="mt-auto pt-6 border-t border-zinc-200/50 dark:border-zinc-800/50">
-        <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer group">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 font-bold text-sm shadow-lg">
-              AD
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Admin SLB</span>
-              <span className="text-[10px] text-zinc-500 font-medium">bethesda.admin</span>
-            </div>
-          </div>
-          <ChevronUp size={14} className="text-zinc-400 group-hover:text-zinc-600 transition-colors" />
-        </div>
-        
+        <button
+          onClick={onSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-black uppercase tracking-widest text-zinc-700 transition-all hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <LogOut size={18} />
+          Keluar
+        </button>
+
         <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
-          <div className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Portal Terapi</div>
-          <div className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-medium italic">Rumah Bethesda v1.0</div>
+          <div className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Portal Sekolah</div>
+          <div className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-medium italic">Bethesda Special School v1.0</div>
         </div>
       </div>
     </>
@@ -174,8 +184,8 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
 
 function BrandMark() {
   return (
-    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-lg shadow-indigo-500/20 ring-1 ring-blue-100">
-      <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={40} height={40} className="h-full w-full object-cover" priority />
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-lg shadow-indigo-500/20">
+      <div className="h-3 w-3 rotate-45 rounded-sm bg-white" />
     </div>
   );
 }

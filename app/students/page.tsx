@@ -75,13 +75,33 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/students', { cache: 'no-store' });
+      // Use relative URL for web browsers (no CORS issues), fallback to absolute URL for Capacitor
+      const url = process.env.NEXT_PUBLIC_APP_URL 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/students`
+        : '/api/students';
+
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
-      // Memastikan data adalah array untuk mencegah error .filter
-      setStudents(Array.isArray(data) ? data : (data.data || []));
-    } catch (error) {
+      console.log('Students data received:', data);
+
+      // Handle various response structures
+      const studentsData = Array.isArray(data) ? data : (data.data || []);
+      setStudents(studentsData);
+
+      if (studentsData.length === 0) {
+        console.warn('Database connected but returned 0 students.');
+      }
+    } catch (error: any) {
       console.error('Error fetching students:', error);
-      toast.error('Gagal memuat data siswa');
+      toast.error(`Gagal memuat data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -367,23 +387,43 @@ export default function StudentsPage() {
       {modalMode && (
         <div className="fixed inset-0 bg-zinc-950/30 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4">
           <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full max-w-4xl rounded-[28px] sm:rounded-[32px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.18)] border border-white/50 dark:border-zinc-800/50 animate-in zoom-in-95 fade-in duration-300 max-h-[92vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-start gap-4 border-b border-zinc-100 dark:border-zinc-800 px-5 py-5 sm:px-8">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-none">
-                  {modalMode === 'add' ? 'Tambah Siswa' : modalMode === 'edit' ? 'Edit Siswa' : modalMode === 'success' ? 'Siswa Terdaftar' : 'Detail Siswa'}
-                </h2>
-                <p className="mt-2 text-sm font-medium text-zinc-500">
-                  {modalMode === 'add'
-                    ? 'Nomor registrasi dan barcode dibuat otomatis secara berurutan.'
-                    : modalMode === 'success'
-                      ? 'Data siswa berhasil dibuat dengan identitas otomatis.'
-                      : 'Kelola identitas, kontak orang tua, dan data terapi siswa.'}
-                </p>
-              </div>
-              {(modalMode === 'view' || modalMode === 'success') && (
-                <span className="shrink-0 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-2 rounded-2xl text-[10px] sm:text-xs font-black tracking-widest tabular-nums shadow-xl">
-                  {selectedStudent?.registrationNo}
-                </span>
+<div className="flex flex-col gap-4 border-b border-zinc-100 dark:border-zinc-800 px-5 py-5 sm:px-8">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-none">
+                        {modalMode === 'add' ? 'Tambah Siswa' : modalMode === 'edit' ? 'Edit Siswa' : modalMode === 'success' ? 'Siswa Terdaftar' : 'Detail Siswa'}
+                      </h2>
+                      <p className="mt-2 text-sm font-medium text-zinc-500">
+                        {modalMode === 'add'
+                          ? 'Nomor registrasi dan barcode dibuat otomatis secara berurutan.'
+                          : modalMode === 'success'
+                            ? 'Data siswa berhasil dibuat dengan identitas otomatis.'
+                            : 'Kelola identitas, kontak orang tua, dan data terapi siswa.'}
+                      </p>
+                    </div>
+                    {(modalMode === 'view' || modalMode === 'success') && (
+                      <span className="shrink-0 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-2 rounded-2xl text-[10px] sm:text-xs font-black tracking-widest tabular-nums shadow-xl">
+                        {selectedStudent?.registrationNo}
+                      </span>
+                    )}
+                  </div>
+                  {modalMode === 'view' && selectedStudent && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenModal('edit', selectedStudent)}
+                        className="rounded-2xl bg-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(selectedStudent.id, selectedStudent.name)}
+                        className="rounded-2xl bg-rose-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-rose-600 transition-all hover:bg-rose-100"
+                      >
+                        Hapus
+                      </button>
+                    </div>
               )}
             </div>
 
@@ -668,27 +708,30 @@ export default function StudentsPage() {
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Status</th>
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Kehadiran</th>
                   <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em]">Portal</th>
-                  <th className="px-6 py-5 font-bold text-zinc-400 uppercase text-[10px] tracking-[0.2em] text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="group hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-all duration-300">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm">
-                          {student.profileImage ? (
-                            <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center font-black">{student.name.charAt(0)}</div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors">{student.name}</div>
-                          <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{student.nickname || 'Tanpa Panggilan'}</div>
-                        </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenModal('view', student)}
+                      className="flex w-full items-center gap-3 text-left transition-all hover:text-indigo-600"
+                    >
+                      <div className="h-11 w-11 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm">
+                        {student.profileImage ? (
+                          <img src={student.profileImage} alt={student.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-black">{student.name.charAt(0)}</div>
+                        )}
                       </div>
-                    </td>
+                      <div>
+                        <div className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors">{student.name}</div>
+                        <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{student.nickname || 'Tanpa Panggilan'}</div>
+                      </div>
+                    </button>
+                  </td>
                     <td className="px-6 py-4 font-mono text-xs text-zinc-500">{student.registrationNo}</td>
                     <td className="px-6 py-4">{student.age || '-'}</td>
                     <td className="px-6 py-4">
@@ -737,32 +780,7 @@ export default function StudentsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                        <button 
-                          onClick={() => handleOpenModal('view', student)}
-                          title="Lihat Profil" 
-                          className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-90"
-                        >
-                          <Eye size={15} className="text-zinc-500 hover:text-indigo-600" />
-                        </button>
-                        <button 
-                          onClick={() => handleOpenModal('edit', student)}
-                          title="Ubah Data" 
-                          className="p-2 hover:bg-white dark:hover:bg-zinc-800 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-90"
-                        >
-                          <Edit2 size={15} className="text-zinc-500 hover:text-amber-600" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(student.id, student.name)}
-                          title="Hapus Data" 
-                          className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all shadow-sm hover:shadow-md group/trash active:scale-90"
-                        >
-                          <Trash2 size={15} className="text-zinc-500 group-hover/trash:text-rose-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                </tr>
                 ))}
               </tbody>
             </table>

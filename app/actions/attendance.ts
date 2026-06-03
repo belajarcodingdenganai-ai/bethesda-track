@@ -249,7 +249,11 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
       // WHATSAPP INTEGRATION
       // Format: "Nathan hadir pukul 13:05. Sesi: 6 dari 8. Sisa: 2 sesi."
       const remaining = activePkg.totalSessions - newUsedSessions;
-      const waMessage = `*Notifikasi Kehadiran*\n\n${student.name} hadir pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}.\n\n*Sesi:*\n${newUsedSessions} dari ${activePkg.totalSessions}\n\n*Sisa:*\n${remaining} sesi.`;
+
+      // Mengambil URL dasar aplikasi dari environment variable
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bethesdatrack.org';
+      
+      const waMessage = `*Notifikasi Kehadiran*\n\n${student.name} hadir pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}.\n\n*Sesi:*\n${newUsedSessions} dari ${activePkg.totalSessions}\n\n*Sisa:*\n${remaining} sesi.\n\nCek detail: ${baseUrl}/students/${student.id}`;
 
       // Panggil helper
       if (student.parentPhone) {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin-auth';
 
 const PUBLIC_PREFIXES = [
   '/parent-portal/',
@@ -6,6 +7,15 @@ const PUBLIC_PREFIXES = [
   '/_next/',
   '/brand/',
   '/icons/',
+];
+
+// Routes yang tidak memerlukan autentikasi admin
+const PUBLIC_ROUTES = [
+  '/login',
+  '/scanner',
+  '/teacher-scanner',
+  '/api/auth/login',
+  '/api/auth/logout',
 ];
 
 function isPublicParentPortalPath(pathname: string) {
@@ -16,10 +26,32 @@ function isPublicParentPortalPath(pathname: string) {
   );
 }
 
+function isPublicRoute(pathname: string) {
+  return PUBLIC_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + '/')
+  );
+}
+
 export function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const parentPortalToken = request.cookies.get('bethesda_parent_portal')?.value;
 
-  if (!parentPortalToken || isPublicParentPortalPath(request.nextUrl.pathname)) {
+  // Handle parent portal routing
+  if (!parentPortalToken || isPublicParentPortalPath(pathname)) {
+    // Check admin authentication for protected routes
+    if (!isPublicParentPortalPath(pathname) && !isPublicRoute(pathname)) {
+      const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+      const isAuthenticated = verifyAdminSessionToken(sessionToken);
+
+      if (!isAuthenticated) {
+        // Redirect ke login dengan next parameter
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = '/login';
+        loginUrl.searchParams.set('next', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
     return NextResponse.next();
   }
 

@@ -8,8 +8,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 md:hidden safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200/80 bg-white/95 shadow-2xl shadow-zinc-900/10 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 md:hidden safe-area-bottom">
+      <div className="flex h-16 items-center justify-around px-2">
         <BottomNavItem
           href="/"
           icon={<LayoutDashboard size={20} />}
@@ -25,7 +25,7 @@ export function BottomNav() {
         <BottomNavItem
           href="/scanner"
           icon={
-            <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-500/30 -mt-8 border-4 border-white dark:border-zinc-950">
+            <div className="-mt-8 rounded-2xl border-4 border-white bg-indigo-600 p-3 text-white shadow-lg shadow-indigo-500/30 dark:border-zinc-950">
               <QrCode size={24} />
             </div>
           }
@@ -54,7 +54,7 @@ function BottomNavItem({ href, icon, label, active, isCenter = false }: { href: 
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+      className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition-colors ${
         isCenter ? "" : "flex-1"
       } ${
         active
@@ -63,7 +63,7 @@ function BottomNavItem({ href, icon, label, active, isCenter = false }: { href: 
       }`}
     >
       {icon}
-      {!isCenter && <span className="text-[10px] font-bold tracking-tight uppercase">{label}</span>}
+      {!isCenter && <span className="max-w-full truncate text-[10px] font-black uppercase tracking-tight">{label}</span>}
     </Link>
   );
 }
