@@ -28,10 +28,25 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchData();
+
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+
+    const handleFocus = () => {
+      fetchData(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [reportRes, statsRes] = await Promise.all([
         getReportData(),
@@ -41,9 +56,9 @@ export default function ReportsPage() {
       if (reportRes.success) setReportData(reportRes.data);
       if (statsRes.success) setStats(statsRes.data);
     } catch (error) {
-      toast.error('Gagal memuat data laporan');
+      if (!silent) toast.error('Gagal memuat data laporan');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -57,7 +72,7 @@ export default function ReportsPage() {
           <p className="text-zinc-500 text-lg font-medium italic mt-2">Visualisasi data kehadiran dan performa program.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={fetchData} className="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-3xl hover:bg-zinc-200 transition-all">
+          <button onClick={() => fetchData()} className="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-3xl hover:bg-zinc-200 transition-all">
             <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
           <button className="flex items-center gap-2 px-6 py-4 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-3xl font-black text-xs uppercase tracking-widest hover-lift shadow-xl">

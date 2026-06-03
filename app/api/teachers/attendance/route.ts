@@ -5,7 +5,9 @@ import { prismaErrorResponse } from '@/lib/prisma-errors';
 export const dynamic = 'force-dynamic';
 
 const noStoreHeaders = {
-  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
 };
 
 function getJakartaDateRange(startDate: string | null, endDate: string | null) {

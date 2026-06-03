@@ -111,31 +111,43 @@ export default function StudentsPage() {
       ? Math.round((portalActiveStudents.length / filteredStudents.length) * 100)
       : 0;
 
-  const getParentPortalLink = (student: Student) => {
-    if (typeof window === 'undefined') return `/students/${student.id}?portal=parent`;
-    return `${window.location.origin}/students/${student.id}?portal=parent`;
+  const getParentPortalLink = async (student: Student) => {
+    const response = await fetch(`/api/parent-portal/link?studentId=${student.id}`, { cache: 'no-store' });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Gagal membuat link parent portal');
+    }
+
+    return data.url as string;
   };
 
   const copyParentPortalLink = async (student: Student) => {
     try {
-      await navigator.clipboard.writeText(getParentPortalLink(student));
+      const portalLink = await getParentPortalLink(student);
+      await navigator.clipboard.writeText(portalLink);
       toast.success(`Link portal ${student.name} disalin`);
     } catch (error) {
-      toast.error('Gagal menyalin link portal');
+      toast.error(error instanceof Error ? error.message : 'Gagal menyalin link portal');
     }
   };
 
-  const openParentWhatsApp = (student: Student) => {
+  const openParentWhatsApp = async (student: Student) => {
     if (!student.parentPhone) {
       toast.error('Nomor WhatsApp orang tua belum tersedia');
       return;
     }
 
-    const phone = student.parentPhone.replace(/\D/g, '');
-    const message = encodeURIComponent(
-      `Halo, berikut akses Parent Portal untuk memantau kehadiran dan sesi terapi ${student.name}: ${getParentPortalLink(student)}`
-    );
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
+    try {
+      const portalLink = await getParentPortalLink(student);
+      const phone = student.parentPhone.replace(/\D/g, '');
+      const message = encodeURIComponent(
+        `Halo, berikut akses Parent Portal khusus untuk memantau kehadiran dan sesi terapi ${student.name}: ${portalLink}`
+      );
+      window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal membuat link parent portal');
+    }
   };
 
   const handleExport = () => {

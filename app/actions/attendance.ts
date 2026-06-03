@@ -199,6 +199,7 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
             teacherId: finalTeacherId,
             programId: activePkg.programId,
             packageId: activePkg.id,
+            qrCodeScanned: qrCode,
           },
         });
 
@@ -236,6 +237,7 @@ export async function processAttendance(rawQrCode: string, teacherId: string, pr
           teacherId: finalTeacherId,
           programId: activePkg.programId,
           packageId: activePkg.id,
+          qrCodeScanned: qrCode,
         },
       });
 

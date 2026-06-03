@@ -593,12 +593,33 @@ const SessionHistoryWindow = ({
 };
 
 const DetailDrawer = ({ student, onClose }: { student: Student; onClose: () => void }) => {
-  const historyData = [
-    { date: "03 Juni", status: "Hadir" },
-    { date: "05 Juni", status: "Hadir" },
-    { date: "10 Juni", status: "Hadir" },
-    { date: "12 Juni", status: "Tidak Hadir" },
-  ];
+  const attendanceHistory = (student.attendances || []).filter((attendance) => attendance?.checkIn);
+
+  const getAttendanceStatus = (status?: string) => {
+    switch (status) {
+      case "ABSENT":
+        return {
+          label: "Tidak Hadir",
+          className: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+        };
+      case "LATE":
+        return {
+          label: "Terlambat",
+          className: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
+        };
+      case "EXCUSED":
+        return {
+          label: "Izin",
+          className: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+        };
+      case "PRESENT":
+      default:
+        return {
+          label: "Hadir",
+          className: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+        };
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center md:justify-end">
@@ -659,23 +680,47 @@ const DetailDrawer = ({ student, onClose }: { student: Student; onClose: () => v
           <div className="space-y-2">
             <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide">Riwayat Kehadiran</h4>
             <div className="space-y-2">
-              {historyData.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50"
-                >
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">{item.date}</span>
-                  <span
-                    className={`text-xs font-bold px-3 py-1 rounded-lg ${
-                      item.status === "Hadir"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                        : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                    }`}
-                  >
-                    {item.status}
-                  </span>
+              {attendanceHistory.length > 0 ? (
+                attendanceHistory.map((attendance) => {
+                  const checkIn = new Date(attendance.checkIn);
+                  const status = getAttendanceStatus(attendance.status);
+
+                  return (
+                    <div
+                      key={attendance.id}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50"
+                    >
+                      <div className="min-w-0">
+                        <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                          {checkIn.toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                            timeZone: "Asia/Jakarta",
+                          })}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                          {checkIn.toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: "Asia/Jakarta",
+                          })}
+                          {attendance.teacher?.user?.name ? ` · ${attendance.teacher.user.name}` : ""}
+                        </span>
+                      </div>
+                      <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-lg ${status.className}`}>
+                        {status.label}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-dashed border-zinc-200 dark:border-zinc-800 text-center">
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    Belum ada scan kehadiran.
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 

@@ -31,12 +31,34 @@ export default function StudentDetailPage() {
   useEffect(() => {
     const parentPortal = searchParams.get('portal') === 'parent';
     setIsParentPortal(parentPortal);
+
+    if (parentPortal) {
+      setStudent(null);
+      setLoading(false);
+      return;
+    }
+
     fetchStudent(parentPortal);
+
+    const interval = setInterval(() => {
+      fetchStudent(parentPortal, true);
+    }, 30000);
+
+    const handleFocus = () => {
+      fetchStudent(parentPortal, true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [studentId, searchParams]);
 
-  const fetchStudent = async (parentPortal = false) => {
+  const fetchStudent = async (parentPortal = false, silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch(
         `/api/students/${studentId}${parentPortal ? '?portal=parent' : ''}`,
         { cache: 'no-store' },
@@ -46,9 +68,9 @@ export default function StudentDetailPage() {
       setStudent(data);
     } catch (error) {
       console.error('Error fetching student:', error);
-      toast.error('Failed to load student details');
+      if (!silent) toast.error('Failed to load student details');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -56,6 +78,20 @@ export default function StudentDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Loading student details...</p>
+      </div>
+    );
+  }
+
+  if (isParentPortal) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-6">
+        <div className="max-w-md rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 text-center">
+          <ShieldCheck size={36} className="mx-auto mb-4 text-zinc-300" />
+          <h1 className="text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-50">Link Parent Portal Berubah</h1>
+          <p className="mt-3 text-sm font-medium text-zinc-500">
+            Link parent sekarang menggunakan alamat khusus dari admin. Silakan minta link Parent Portal terbaru dari Rumah Bethesda.
+          </p>
+        </div>
       </div>
     );
   }

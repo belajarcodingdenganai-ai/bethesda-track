@@ -4,7 +4,9 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 const noStoreHeaders = {
-  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
 };
 
 export async function GET(request: NextRequest) {
@@ -13,15 +15,38 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '250', 10), 1000);
 
     const [
+      users,
+      parents,
       students,
       teachers,
       therapyPackages,
       studentAttendances,
       teacherAttendances,
       programs,
+      notifications,
+      dailyReports,
     ] = await Promise.all([
+      prisma.user.findMany({
+        include: {
+          teacher: true,
+          parent: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+      }),
+      prisma.parent.findMany({
+        include: {
+          user: true,
+          children: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+      }),
       prisma.student.findMany({
         include: {
+          parent: {
+            include: { user: true },
+          },
           programs: { include: { program: true } },
           packages: {
             include: { program: true },
@@ -80,17 +105,49 @@ export async function GET(request: NextRequest) {
       prisma.program.findMany({
         orderBy: { name: 'asc' },
       }),
+      prisma.notification.findMany({
+        include: {
+          student: true,
+          teacher: {
+            include: { user: true },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+      }),
+      prisma.dailyReport.findMany({
+        orderBy: { date: 'desc' },
+        take: limit,
+      }),
     ]);
 
     return NextResponse.json(
       {
         syncedAt: new Date().toISOString(),
+        source: 'prisma',
+        database: 'shared',
+        users,
+        parents,
         students,
         teachers,
         therapyPackages,
         studentAttendances,
         teacherAttendances,
         programs,
+        notifications,
+        dailyReports,
+        totals: {
+          users: users.length,
+          parents: parents.length,
+          students: students.length,
+          teachers: teachers.length,
+          therapyPackages: therapyPackages.length,
+          studentAttendances: studentAttendances.length,
+          teacherAttendances: teacherAttendances.length,
+          programs: programs.length,
+          notifications: notifications.length,
+          dailyReports: dailyReports.length,
+        },
       },
       { headers: noStoreHeaders },
     );

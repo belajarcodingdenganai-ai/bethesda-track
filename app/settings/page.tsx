@@ -30,19 +30,34 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchPrograms();
+
+    const interval = setInterval(() => {
+      fetchPrograms(true);
+    }, 30000);
+
+    const handleFocus = () => {
+      fetchPrograms(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
-  const fetchPrograms = async () => {
+  const fetchPrograms = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const result = await getPrograms();
       if (result.success) {
         setPrograms(result.data);
       }
     } catch (error) {
-      toast.error('Gagal memuat data program');
+      if (!silent) toast.error('Gagal memuat data program');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 

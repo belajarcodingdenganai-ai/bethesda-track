@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
 import { revalidatePath } from 'next/cache';
+import { ProgramType } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 const noStoreHeaders = {
-  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
 };
 
 async function getNextStudentRegistrationNo() {
@@ -22,6 +25,50 @@ async function getNextStudentRegistrationNo() {
   }, 0);
 
   return `BETH-${String(highestNumber + 1).padStart(3, '0')}`;
+}
+
+const PROGRAM_LABELS: Record<ProgramType, string> = {
+  ABA: 'Applied Behavior Analysis',
+  SI: 'Sensory Integration',
+  SPEECH: 'Speech Therapy',
+  OT: 'Occupational Therapy',
+  ACADEMIC: 'Academic Support',
+};
+
+function normalizeProgramName(value: string): ProgramType | null {
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, '_');
+  const aliases: Record<string, ProgramType> = {
+    ABA: ProgramType.ABA,
+    SI: ProgramType.SI,
+    SENSORY: ProgramType.SI,
+    SENSORY_INTEGRATION: ProgramType.SI,
+    SPEECH: ProgramType.SPEECH,
+    SPEECH_THERAPY: ProgramType.SPEECH,
+    OT: ProgramType.OT,
+    OCCUPATIONAL_THERAPY: ProgramType.OT,
+    ACADEMIC: ProgramType.ACADEMIC,
+    ACADEMIC_SUPPORT: ProgramType.ACADEMIC,
+  };
+
+  return aliases[normalized] || null;
+}
+
+function normalizeProgramList(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
 }
 
 export async function GET(request: NextRequest) {
@@ -86,24 +133,77 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const registrationNo = body.registrationNo || await getNextStudentRegistrationNo();
     const qrCode = body.qrCode || `STU-${registrationNo}`;
+    const programNames = normalizeProgramList(body.programs);
+    const frequency = Number.parseInt(String(body.frequency || ''), 10);
+    const totalSessions = Number.parseInt(String(body.totalSessions || ''), 10);
 
-    const student = await prisma.student.create({
-      data: {
-        registrationNo,
-        name: body.name,
-        nickname: body.nickname,
-        gender: body.gender,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-        age: body.age,
-        address: body.address,
-        parentPhone: body.parentPhone,
-        parentEmail: null,
-        school: body.school,
-        diagnosis: body.diagnosis,
-        profileImage: body.profileImage,
-        qrCode,
-        status: body.status || 'ACTIVE',
-      },
+    if (!body.name || typeof body.name !== 'string') {
+      return NextResponse.json({ error: 'Nama siswa wajib diisi.' }, { status: 400, headers: noStoreHeaders });
+    }
+
+    const student = await prisma.$transaction(async (tx) => {
+      const createdStudent = await tx.student.create({
+        data: {
+          registrationNo,
+          name: body.name.trim(),
+          nickname: body.nickname || null,
+          gender: body.gender || null,
+          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+          age: Number.isFinite(Number(body.age)) ? Number(body.age) : null,
+          address: body.address || null,
+          parentPhone: body.parentPhone || null,
+          parentEmail: body.parentEmail || null,
+          school: body.school || null,
+          diagnosis: body.diagnosis || null,
+          profileImage: body.profileImage || null,
+          qrCode,
+          status: body.status || 'ACTIVE',
+        },
+      });
+
+      if (programNames.length > 0 && Number.isFinite(frequency) && frequency > 0) {
+        for (const programName of programNames) {
+          const enumName = normalizeProgramName(programName);
+          if (!enumName) throw new Error(`Program terapi tidak valid: ${programName}`);
+
+          const program = await tx.program.upsert({
+            where: { name: enumName },
+            update: {},
+            create: {
+              name: enumName,
+              description: PROGRAM_LABELS[enumName],
+            },
+          });
+
+          await tx.studentProgram.upsert({
+            where: {
+              studentId_programId: {
+                studentId: createdStudent.id,
+                programId: program.id,
+              },
+            },
+            update: {},
+            create: {
+              studentId: createdStudent.id,
+              programId: program.id,
+            },
+          });
+
+          await tx.therapyPackage.create({
+            data: {
+              studentId: createdStudent.id,
+              programId: program.id,
+              frequency,
+              totalSessions: Number.isFinite(totalSessions) && totalSessions > 0 ? totalSessions : frequency * 4,
+              therapistName: body.therapistName || body.therapistId || null,
+              scheduleTime: body.scheduleTime || null,
+              status: 'ACTIVE',
+            },
+          });
+        }
+      }
+
+      return createdStudent;
     });
 
     revalidatePath('/');

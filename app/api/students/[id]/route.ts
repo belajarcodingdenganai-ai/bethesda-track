@@ -6,7 +6,9 @@ import { revalidatePath } from 'next/cache';
 export const dynamic = 'force-dynamic';
 
 const noStoreHeaders = {
-  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

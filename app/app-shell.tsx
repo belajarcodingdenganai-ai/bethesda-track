@@ -9,7 +9,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isTeacherScanner = pathname === "/teacher-scanner";
-  const isParentPortal = pathname.startsWith("/students/") && searchParams.get("portal") === "parent";
+  const isParentPortal =
+    pathname.startsWith("/parent-portal/") ||
+    (pathname.startsWith("/students/") && searchParams.get("portal") === "parent");
 
   if (isTeacherScanner || isParentPortal) {
     return <main className="min-h-screen overflow-y-auto">{children}</main>;
