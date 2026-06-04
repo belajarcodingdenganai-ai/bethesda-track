@@ -16,6 +16,11 @@ const PUBLIC_ROUTES = [
   '/teacher-scanner',
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/sync',
+];
+
+const PUBLIC_GET_ROUTES = [
+  '/api/teachers',
 ];
 
 function isPublicParentPortalPath(pathname: string) {
@@ -32,6 +37,14 @@ function isPublicRoute(pathname: string) {
   );
 }
 
+function isPublicGetRoute(request: NextRequest) {
+  if (request.method !== 'GET') return false;
+
+  return PUBLIC_GET_ROUTES.some(
+    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
+  );
+}
+
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const parentPortalToken = request.cookies.get('bethesda_parent_portal')?.value;
@@ -39,7 +52,7 @@ export function proxy(request: NextRequest) {
   // Handle parent portal routing
   if (!parentPortalToken || isPublicParentPortalPath(pathname)) {
     // Check admin authentication for protected routes
-    if (!isPublicParentPortalPath(pathname) && !isPublicRoute(pathname)) {
+    if (!isPublicParentPortalPath(pathname) && !isPublicRoute(pathname) && !isPublicGetRoute(request)) {
       const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
       const isAuthenticated = verifyAdminSessionToken(sessionToken);
 

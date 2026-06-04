@@ -60,6 +60,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching teachers:', error);
     return prismaErrorResponse(error, 'Failed to fetch teachers');
+  } finally {
+    await prisma.$disconnect().catch((error) => {
+      console.error('Error disconnecting Prisma after fetching teachers:', error);
+    });
   }
 }
 

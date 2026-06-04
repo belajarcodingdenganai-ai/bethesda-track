@@ -94,5 +94,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching teacher attendance:', error);
     return prismaErrorResponse(error, 'Failed to fetch teacher attendance');
+  } finally {
+    await prisma.$disconnect().catch((error) => {
+      console.error('Error disconnecting Prisma after fetching teacher attendance:', error);
+    });
   }
 }

@@ -8,6 +8,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
@@ -23,6 +24,10 @@ public class MainActivity extends BridgeActivity {
 
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView != null) {
+            WebSettings settings = webView.getSettings();
+            settings.setSupportZoom(true);
+            settings.setBuiltInZoomControls(true);
+            settings.setDisplayZoomControls(false);
             webView.addJavascriptInterface(new BethesdaDownloader(), "BethesdaDownloader");
         }
 

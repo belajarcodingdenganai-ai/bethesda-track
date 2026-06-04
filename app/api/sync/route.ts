@@ -9,24 +9,21 @@ const noStoreHeaders = {
   Expires: '0',
 };
 
+function getSyncErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unknown sync error';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '250', 10), 1000);
 
-    const [
-      users,
-      parents,
-      students,
-      teachers,
-      therapyPackages,
-      studentAttendances,
-      teacherAttendances,
-      programs,
-      notifications,
-      dailyReports,
-    ] = await Promise.all([
-      prisma.user.findMany({
+    const syncQueries = {
+      users: () => prisma.user.findMany({
         include: {
           teacher: true,
           parent: true,
@@ -34,7 +31,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.parent.findMany({
+      parents: () => prisma.parent.findMany({
         include: {
           user: true,
           children: true,
@@ -42,7 +39,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.student.findMany({
+      students: () => prisma.student.findMany({
         include: {
           parent: {
             include: { user: true },
@@ -59,7 +56,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.teacher.findMany({
+      teachers: () => prisma.teacher.findMany({
         include: {
           user: true,
           attendanceLogs: {
@@ -73,7 +70,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.therapyPackage.findMany({
+      therapyPackages: () => prisma.therapyPackage.findMany({
         include: {
           student: true,
           program: true,
@@ -81,7 +78,7 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.attendance.findMany({
+      studentAttendances: () => prisma.attendance.findMany({
         include: {
           student: true,
           program: true,
@@ -93,7 +90,7 @@ export async function GET(request: NextRequest) {
         orderBy: { checkIn: 'desc' },
         take: limit,
       }),
-      prisma.teacherAttendance.findMany({
+      teacherAttendances: () => prisma.teacherAttendance.findMany({
         include: {
           teacher: {
             include: { user: true },
@@ -102,10 +99,10 @@ export async function GET(request: NextRequest) {
         orderBy: { checkIn: 'desc' },
         take: limit,
       }),
-      prisma.program.findMany({
+      programs: () => prisma.program.findMany({
         orderBy: { name: 'asc' },
       }),
-      prisma.notification.findMany({
+      notifications: () => prisma.notification.findMany({
         include: {
           student: true,
           teacher: {
@@ -115,17 +112,56 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: limit,
       }),
-      prisma.dailyReport.findMany({
+      dailyReports: () => prisma.dailyReport.findMany({
         orderBy: { date: 'desc' },
         take: limit,
       }),
-    ]);
+    };
+
+    const syncEntries = [];
+
+    for (const [name, query] of Object.entries(syncQueries)) {
+      try {
+        syncEntries.push([name, { data: await query(), error: null }] as const);
+      } catch (error) {
+        console.error(`Error syncing ${name}:`, error);
+        syncEntries.push([name, { data: [], error: getSyncErrorMessage(error) }] as const);
+      }
+    }
+
+    const syncResults = Object.fromEntries(syncEntries) as Record<
+      keyof typeof syncQueries,
+      { data: unknown[]; error: string | null }
+    >;
+    const syncErrors = Object.entries(syncResults)
+      .filter(([, result]) => result.error)
+      .map(([name, result]) => ({ dataset: name, error: result.error }));
+
+    if (syncErrors.length === Object.keys(syncQueries).length) {
+      return NextResponse.json(
+        { error: 'Gagal sinkronisasi data production.', syncErrors },
+        { status: 500, headers: noStoreHeaders },
+      );
+    }
+
+    const users = syncResults.users.data;
+    const parents = syncResults.parents.data;
+    const students = syncResults.students.data;
+    const teachers = syncResults.teachers.data;
+    const therapyPackages = syncResults.therapyPackages.data;
+    const studentAttendances = syncResults.studentAttendances.data;
+    const teacherAttendances = syncResults.teacherAttendances.data;
+    const programs = syncResults.programs.data;
+    const notifications = syncResults.notifications.data;
+    const dailyReports = syncResults.dailyReports.data;
 
     return NextResponse.json(
       {
+        ok: syncErrors.length === 0,
         syncedAt: new Date().toISOString(),
         source: 'prisma',
         database: 'shared',
+        syncErrors,
         users,
         parents,
         students,
@@ -157,5 +193,9 @@ export async function GET(request: NextRequest) {
       { error: 'Gagal sinkronisasi data.' },
       { status: 500, headers: noStoreHeaders },
     );
+  } finally {
+    await prisma.$disconnect().catch((error) => {
+      console.error('Error disconnecting Prisma after sync:', error);
+    });
   }
 }

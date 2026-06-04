@@ -1,4 +1,20 @@
-export const THERAPIST_NAMES = ['Maria', 'Samuel', 'Yohanes', 'Irfan', 'Sarah'];
+export const THERAPIST_NAMES = [
+  'Maria',
+  'Samuel',
+  'Yohanes',
+  'Irfan',
+  'Sarah',
+  'ESTER WARUWU',
+  'MAUDY LINTJEWAS',
+  'MARGARETHA OLIVIA',
+  'PUTRA MENDROFA',
+  'MEGA UTAMI',
+  'IRVANUS',
+  'RAMARUDI',
+  'NENI',
+  'ARIANUS',
+  'FARISMAN',
+];
 
 export const THERAPY_SCHEDULES = [
   '08:00-09:00',
