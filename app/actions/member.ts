@@ -82,6 +82,20 @@ function getOptionalFormString(formData: FormData, key: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function calculateAgeFromBirthDate(dateOfBirth: Date | null) {
+  if (!dateOfBirth || Number.isNaN(dateOfBirth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age -= 1;
+  }
+
+  return Math.max(age, 0);
+}
+
 function getActionErrorMessage(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
     return 'Tabel database belum dibuat. Jalankan sinkronisasi Prisma terlebih dahulu.';
@@ -106,8 +120,9 @@ export async function createStudent(formData: FormData) {
       const nickname = getOptionalFormString(formData, 'nickname');
       const parentPhone = getOptionalFormString(formData, 'parentPhone');
       const gender = getOptionalFormString(formData, 'gender');
-      const dateOfBirth = formData.get('dateOfBirth') ? new Date(formData.get('dateOfBirth') as string) : null;
-      const age = parseInt((formData.get('age') as string) || '', 10);
+      const dateOfBirthText = getOptionalFormString(formData, 'dateOfBirth');
+      const dateOfBirth = dateOfBirthText ? new Date(dateOfBirthText) : null;
+      const age = calculateAgeFromBirthDate(dateOfBirth);
       const address = getOptionalFormString(formData, 'address');
       const diagnosis = getOptionalFormString(formData, 'diagnosis');
       const profileImage = getOptionalFormString(formData, 'profileImage');
@@ -125,7 +140,7 @@ export async function createStudent(formData: FormData) {
           nickname,
           parentPhone,
           dateOfBirth,
-          age: Number.isFinite(age) ? age : null,
+          age,
           gender,
           address,
           diagnosis,
@@ -185,8 +200,9 @@ export async function updateStudent(id: string, formData: FormData) {
     const nickname = getOptionalFormString(formData, 'nickname');
     const parentPhone = getOptionalFormString(formData, 'parentPhone');
     const gender = getOptionalFormString(formData, 'gender');
-    const dateOfBirth = formData.get('dateOfBirth') ? new Date(formData.get('dateOfBirth') as string) : null;
-    const age = parseInt((formData.get('age') as string) || '', 10);
+    const dateOfBirthText = getOptionalFormString(formData, 'dateOfBirth');
+    const dateOfBirth = dateOfBirthText ? new Date(dateOfBirthText) : null;
+    const age = calculateAgeFromBirthDate(dateOfBirth);
     const address = getOptionalFormString(formData, 'address');
     const diagnosis = getOptionalFormString(formData, 'diagnosis');
     const profileImage = getOptionalFormString(formData, 'profileImage');
@@ -202,7 +218,7 @@ export async function updateStudent(id: string, formData: FormData) {
         parentEmail: null,
         gender,
         dateOfBirth,
-        age: Number.isFinite(age) ? age : null,
+        age,
         address,
         diagnosis,
         profileImage,

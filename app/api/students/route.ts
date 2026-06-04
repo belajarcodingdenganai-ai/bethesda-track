@@ -12,6 +12,20 @@ const noStoreHeaders = {
   Expires: '0',
 };
 
+function calculateAgeFromBirthDate(dateOfBirth: Date | null) {
+  if (!dateOfBirth || Number.isNaN(dateOfBirth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age -= 1;
+  }
+
+  return Math.max(age, 0);
+}
+
 async function getNextStudentRegistrationNo() {
   const students = await prisma.student.findMany({
     where: { registrationNo: { startsWith: 'BETH-' } },
@@ -159,6 +173,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nama siswa wajib diisi.' }, { status: 400, headers: noStoreHeaders });
     }
 
+    const dateOfBirth = body.dateOfBirth ? new Date(body.dateOfBirth) : null;
+    const age = calculateAgeFromBirthDate(dateOfBirth);
+
     const student = await prisma.$transaction(async (tx) => {
       const createdStudent = await tx.student.create({
         data: {
@@ -166,8 +183,8 @@ export async function POST(request: NextRequest) {
           name: body.name.trim(),
           nickname: body.nickname || null,
           gender: body.gender || null,
-          dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-          age: Number.isFinite(Number(body.age)) ? Number(body.age) : null,
+          dateOfBirth,
+          age,
           address: body.address || null,
           parentPhone: body.parentPhone || null,
           parentEmail: body.parentEmail || null,

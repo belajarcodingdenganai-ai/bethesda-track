@@ -1,19 +1,20 @@
 export const THERAPIST_NAMES = [
-  'Maria',
-  'Samuel',
-  'Yohanes',
-  'Irfan',
-  'Sarah',
+  'SUKARDIN MENDROFA',
+  'NOVERA DINI',
+  'WASTI',
+  'HANA LAZHARUS',
+  'ROSIN ROBO',
   'ESTER WARUWU',
   'MAUDY LINTJEWAS',
   'MARGARETHA OLIVIA',
   'PUTRA MENDROFA',
   'MEGA UTAMI',
   'IRVANUS',
-  'RAMARUDI',
+  'RAMARUDI LAIA',
   'NENI',
-  'ARIANUS',
   'FARISMAN',
+  'ARIANUS',
+  'YERIANTO',
 ];
 
 export const THERAPY_SCHEDULES = [

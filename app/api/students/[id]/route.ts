@@ -11,6 +11,20 @@ const noStoreHeaders = {
   Expires: '0',
 };
 
+function calculateAgeFromBirthDate(dateOfBirth: Date | null) {
+  if (!dateOfBirth || Number.isNaN(dateOfBirth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age -= 1;
+  }
+
+  return Math.max(age, 0);
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -113,6 +127,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
+    const dateOfBirth = body.dateOfBirth ? new Date(body.dateOfBirth) : null;
+    const age = calculateAgeFromBirthDate(dateOfBirth);
 
     const student = await prisma.student.update({
       where: { id },
@@ -120,8 +136,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name: body.name,
         nickname: body.nickname,
         gender: body.gender,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-        age: body.age,
+        dateOfBirth,
+        age,
         address: body.address,
         parentPhone: body.parentPhone,
         parentEmail: body.parentEmail,

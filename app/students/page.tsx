@@ -347,6 +347,8 @@ export default function StudentsPage() {
         months += 12;
       }
       setAgeDisplay(`${years} Tahun ${months} Bulan`);
+    } else {
+      setAgeDisplay('');
     }
   }, [dob]);
 
@@ -433,7 +435,6 @@ export default function StudentsPage() {
       name: student?.name || '',
       nickname: student?.nickname || '',
       gender: student?.gender || 'L',
-      age: student?.age != null ? String(student.age) : '',
       parentPhone: student?.parentPhone || '',
       address: student?.address || '',
       diagnosis: student?.diagnosis || '',
@@ -608,8 +609,21 @@ export default function StudentsPage() {
                         </select>
                       </div>
                       <div className="form-field-modern">
-                        <label className="form-label-modern">Usia</label>
-                        <input name="age" type="number" min="0" value={formDraft.age || ''} disabled={modalMode === 'view'} onChange={handleFormDraftChange} className="form-input-modern" placeholder="0" />
+                        <label className="form-label-modern">Tanggal Lahir</label>
+                        <div className="relative">
+                          <Calendar size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                          <input
+                            name="dateOfBirth"
+                            type="date"
+                            value={dob}
+                            disabled={modalMode === 'view'}
+                            onChange={(event) => setDob(event.target.value)}
+                            className="form-input-modern pl-12"
+                          />
+                        </div>
+                        <p className="min-h-5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                          {ageDisplay ? `Usia: ${ageDisplay}` : 'Tanggal lahir boleh dikosongkan.'}
+                        </p>
                       </div>
                       <div className="form-field-modern">
                         <label className="form-label-modern">WhatsApp Orang Tua</label>

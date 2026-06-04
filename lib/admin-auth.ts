@@ -10,8 +10,7 @@ function getAuthSecret() {
     process.env.ADMIN_AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
     process.env.PARENT_PORTAL_SECRET ||
-    process.env.DATABASE_URL ||
-    'bethesda-admin-development-secret'
+    'bethesda-admin-session-v1'
   );
 }
 
