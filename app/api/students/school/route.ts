@@ -54,7 +54,6 @@ export async function GET(request: NextRequest) {
         address: true,
         diagnosis: true,
         schoolTeacherName: true,
-        profileImage: true,
         qrCode: true,
         studentTrack: true,
         createdAt: true,
@@ -124,20 +123,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Nama siswa wajib diisi.' }, { status: 400, headers: noStoreHeaders });
     }
 
+    const data: any = {
+      name,
+      nickname: body.nickname || null,
+      gender: body.gender || null,
+      dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+      parentPhone: body.parentPhone || null,
+      parentEmail: body.parentEmail || null,
+      address: body.address || null,
+      diagnosis: body.diagnosis || null,
+      schoolTeacherName: body.schoolTeacherName || 'ESTER WARUWU',
+    };
+
+    if (Object.prototype.hasOwnProperty.call(body, 'profileImage')) {
+      data.profileImage = body.profileImage || null;
+    }
+
     const student = await prisma.student.update({
       where: { id },
-      data: {
-        name,
-        nickname: body.nickname || null,
-        gender: body.gender || null,
-        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
-        parentPhone: body.parentPhone || null,
-        parentEmail: body.parentEmail || null,
-        address: body.address || null,
-        diagnosis: body.diagnosis || null,
-        schoolTeacherName: body.schoolTeacherName || 'ESTER WARUWU',
-        profileImage: body.profileImage || null,
-      },
+      data,
     });
 
     revalidatePath('/students/school');

@@ -166,7 +166,7 @@ export default function SchoolStudentsPage() {
   };
 
   const buildAvatarImage = async () => {
-    if (!profilePreview) return selectedStudent?.profileImage || null;
+    if (!profilePreview) return modalMode === "edit" ? undefined : null;
     const image = new Image();
     image.src = profilePreview;
     await image.decode();
@@ -195,7 +195,7 @@ export default function SchoolStudentsPage() {
     try {
       setIsSubmitting(true);
       const profileImage = await buildAvatarImage();
-      const payload = {
+      const payload: any = {
         id: selectedStudent?.id,
         name,
         nickname: formData.get("nickname") || null,
@@ -205,8 +205,11 @@ export default function SchoolStudentsPage() {
         address: formData.get("address") || null,
         diagnosis: formData.get("diagnosis") || null,
         schoolTeacherName: formData.get("schoolTeacherName") || "ESTER WARUWU",
-        profileImage,
       };
+
+      if (profileImage !== undefined) {
+        payload.profileImage = profileImage;
+      }
       const response = await fetch("/api/students/school", {
         method: modalMode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
