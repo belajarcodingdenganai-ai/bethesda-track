@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getProjectFlowProgramChecklistWithSummary, getProjectFlowStudentAssignment } from "@/lib/projectflow";
+import { getProjectFlowStudentAssignment } from "@/lib/projectflow";
 import { jsonCacheResponse } from "@/lib/api-cache";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +8,19 @@ export const dynamic = "force-dynamic";
 const cacheHeaders = {
   "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
 };
+
+function compactProjectFlowAssignment(assignment: any) {
+  if (!assignment) return null;
+
+  return {
+    cardId: assignment.cardId,
+    cardTitle: assignment.cardTitle,
+    boardTitle: assignment.boardTitle,
+    scheduleTime: assignment.scheduleTime,
+    teacherNames: assignment.teacherNames || [],
+    primaryTeacherName: assignment.primaryTeacherName || null,
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -111,7 +124,7 @@ export async function GET(request: Request) {
         (pkg) => pkg.status === "ACTIVE" || pkg.status === "WARNING"
       );
       const projectFlowAssignment = await getProjectFlowStudentAssignment(student.name, "THERAPY");
-      const projectFlowChecklist = await getProjectFlowProgramChecklistWithSummary(student.name, "THERAPY");
+      const compactAssignment = compactProjectFlowAssignment(projectFlowAssignment);
 
       // Calculate remaining sessions
       const totalSessions = activePackage?.totalSessions || 0;
@@ -120,7 +133,7 @@ export async function GET(request: Request) {
 
       // Get therapist name from latest attendance
       const latestAttendance = student.attendances[0];
-      const therapistName = projectFlowAssignment?.teacherNames?.join(", ") || activePackage?.therapistName || latestAttendance?.teacher?.user?.name || "Belum ada terapis";
+      const therapistName = compactAssignment?.teacherNames?.join(", ") || activePackage?.therapistName || latestAttendance?.teacher?.user?.name || "Belum ada terapis";
 
       // Get primary program
       const primaryProgram = activePackage?.program?.name || student.programs[0]?.program?.name || "Belum ada program";
@@ -165,12 +178,11 @@ export async function GET(request: Request) {
         package: activePackage
           ? {
               ...activePackage,
-              therapistName: projectFlowAssignment?.primaryTeacherName || activePackage.therapistName,
-              projectFlowAssignment,
+              therapistName: compactAssignment?.primaryTeacherName || activePackage.therapistName,
+              projectFlowAssignment: compactAssignment,
             }
           : activePackage,
         attendances: student.attendances,
-        projectFlowChecklist,
       };
     }));
 
