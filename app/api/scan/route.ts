@@ -12,20 +12,21 @@ const noStoreHeaders = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verifikasi admin session sebelum memproses attendance
-    const adminSession = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
-    if (!isAdminAuthenticated(adminSession)) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized. Hanya admin yang dapat melakukan signing.' },
-        { status: 401, headers: noStoreHeaders },
-      );
-    }
-
     const body = await request.json();
     const qrCode = typeof body.qrCode === 'string' ? body.qrCode.trim() : '';
     const teacherId = typeof body.teacherId === 'string' ? body.teacherId : 'teacher-id-placeholder';
     const programId = typeof body.programId === 'string' ? body.programId : undefined;
     const mode = typeof body.mode === 'string' ? body.mode : 'all';
+
+    if (mode !== 'teacher') {
+      const adminSession = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+      if (!isAdminAuthenticated(adminSession)) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized. Hanya admin yang dapat melakukan scan siswa.' },
+          { status: 401, headers: noStoreHeaders },
+        );
+      }
+    }
 
     if (!qrCode) {
       return NextResponse.json(

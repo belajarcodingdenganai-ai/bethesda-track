@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getPrismaErrorMessage, prismaErrorResponse } from '@/lib/prisma-errors';
 import { revalidatePath } from 'next/cache';
 import { ProgramType } from '@prisma/client';
+import { jsonCacheResponse } from '@/lib/api-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,10 @@ const noStoreHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   Pragma: 'no-cache',
   Expires: '0',
+};
+
+const listCacheHeaders = {
+  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
 };
 
 function calculateAgeFromBirthDate(dateOfBirth: Date | null) {
@@ -89,10 +94,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const track = searchParams.get('track') || 'THERAPY';
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     const where: any = {};
+    if (track !== 'ALL') {
+      where.studentTrack = track === 'SCHOOL' ? 'SCHOOL' : 'THERAPY';
+    }
     if (status && status !== 'ALL') {
       where.status = status;
     }
@@ -112,6 +121,7 @@ export async function GET(request: NextRequest) {
           diagnosis: true,
           profileImage: true,
           status: true,
+          studentTrack: true,
           parentPhone: true,
           qrCode: true,
           packages: {
@@ -146,14 +156,12 @@ export async function GET(request: NextRequest) {
       prisma.student.count({ where }),
     ]);
 
-    return NextResponse.json({
+    return jsonCacheResponse(request, {
       data: students,
       total,
       limit,
       offset,
-    }, {
-      headers: noStoreHeaders,
-    });
+    }, listCacheHeaders);
   } catch (error) {
     console.error('Error fetching students:', error);
     return prismaErrorResponse(error, 'Failed to fetch students');
@@ -193,6 +201,7 @@ export async function POST(request: NextRequest) {
           profileImage: body.profileImage || null,
           qrCode,
           status: body.status || 'ACTIVE',
+          studentTrack: body.studentTrack === 'SCHOOL' ? 'SCHOOL' : 'THERAPY',
         },
       });
 
@@ -243,6 +252,7 @@ export async function POST(request: NextRequest) {
 
     revalidatePath('/');
     revalidatePath('/students');
+    revalidatePath('/students/school');
     revalidatePath('/sessions');
 
     return NextResponse.json(student, { status: 201, headers: noStoreHeaders });

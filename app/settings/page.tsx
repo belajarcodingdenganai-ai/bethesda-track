@@ -33,7 +33,7 @@ export default function SettingsPage() {
 
     const interval = setInterval(() => {
       fetchPrograms(true);
-    }, 30000);
+    }, 300000);
 
     const handleFocus = () => {
       fetchPrograms(true);
@@ -69,7 +69,7 @@ export default function SettingsPage() {
       toast.success(`Program ${name} dihapus`);
       fetchPrograms();
     } else {
-      toast.error(`Gagal: ${result.error}`);
+      toast.error(`Gagal: ${'error' in result ? result.error : 'Terjadi kesalahan'}`);
     }
   };
 

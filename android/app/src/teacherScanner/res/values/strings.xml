@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SmartHub</string>
-    <string name="title_activity_main">SmartHub</string>
+    <string name="app_name">Scan Guru</string>
+    <string name="title_activity_main">Scan Guru</string>
     <string name="package_name">com.bethesda.teacher.scanner</string>
     <string name="custom_url_scheme">com.bethesda.teacher.scanner</string>
 </resources>

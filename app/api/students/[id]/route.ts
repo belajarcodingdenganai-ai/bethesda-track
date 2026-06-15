@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { prismaErrorResponse } from '@/lib/prisma-errors';
 import { revalidatePath } from 'next/cache';
+import { jsonCacheResponse } from '@/lib/api-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,10 @@ const noStoreHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   Pragma: 'no-cache',
   Expires: '0',
+};
+
+const detailCacheHeaders = {
+  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
 };
 
 function calculateAgeFromBirthDate(dateOfBirth: Date | null) {
@@ -114,9 +119,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    return NextResponse.json(student, {
-      headers: noStoreHeaders,
-    });
+    return jsonCacheResponse(request, student, detailCacheHeaders);
   } catch (error) {
     console.error('Error fetching student:', error);
     return prismaErrorResponse(error, 'Failed to fetch student');

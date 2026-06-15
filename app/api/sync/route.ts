@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { jsonCacheResponse } from '@/lib/api-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,10 @@ const noStoreHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   Pragma: 'no-cache',
   Expires: '0',
+};
+
+const syncCacheHeaders = {
+  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
 };
 
 function getSyncErrorMessage(error: unknown) {
@@ -20,7 +25,15 @@ function getSyncErrorMessage(error: unknown) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '250', 10), 1000);
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 250) : 100;
+    const requestedDatasets = new Set(
+      searchParams
+        .getAll('dataset')
+        .flatMap((value) => value.split(','))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
 
     const syncQueries = {
       users: () => prisma.user.findMany({
@@ -59,12 +72,12 @@ export async function GET(request: NextRequest) {
       teachers: () => prisma.teacher.findMany({
         include: {
           user: true,
-          attendanceLogs: {
+          teacherAttendances: {
             orderBy: { checkIn: 'desc' },
             take: 10,
           },
           _count: {
-            select: { attendances: true, attendanceLogs: true },
+            select: { attendances: true, teacherAttendances: true },
           },
         },
         orderBy: { updatedAt: 'desc' },
@@ -121,6 +134,11 @@ export async function GET(request: NextRequest) {
     const syncEntries = [];
 
     for (const [name, query] of Object.entries(syncQueries)) {
+      if (requestedDatasets.size > 0 && !requestedDatasets.has(name)) {
+        syncEntries.push([name, { data: [], error: null }] as const);
+        continue;
+      }
+
       try {
         syncEntries.push([name, { data: await query(), error: null }] as const);
       } catch (error) {
@@ -155,7 +173,8 @@ export async function GET(request: NextRequest) {
     const notifications = syncResults.notifications.data;
     const dailyReports = syncResults.dailyReports.data;
 
-    return NextResponse.json(
+    return jsonCacheResponse(
+      request,
       {
         ok: syncErrors.length === 0,
         syncedAt: new Date().toISOString(),
@@ -185,7 +204,7 @@ export async function GET(request: NextRequest) {
           dailyReports: dailyReports.length,
         },
       },
-      { headers: noStoreHeaders },
+      syncCacheHeaders,
     );
   } catch (error) {
     console.error('Error syncing data:', error);

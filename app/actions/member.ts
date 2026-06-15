@@ -147,6 +147,7 @@ export async function createStudent(formData: FormData) {
           profileImage,
           qrCode: `STU-${registrationNo}`, // Format: STU-BETH-001
           status: 'ACTIVE',
+          studentTrack: 'THERAPY',
         },
       });
 
@@ -184,6 +185,7 @@ export async function createStudent(formData: FormData) {
       }
 
       revalidatePath('/students');
+      revalidatePath('/students/school');
       revalidatePath('/');
       revalidatePath('/sessions');
       return { success: true, data: student };
@@ -226,6 +228,7 @@ export async function updateStudent(id: string, formData: FormData) {
     });
 
     revalidatePath('/students');
+    revalidatePath('/students/school');
     revalidatePath('/');
     revalidatePath('/sessions');
     revalidatePath(`/students/${id}`);
@@ -242,6 +245,7 @@ export async function deleteStudent(id: string) {
     });
 
     revalidatePath('/students');
+    revalidatePath('/students/school');
     revalidatePath('/');
     revalidatePath('/sessions');
     return { success: true };
@@ -259,6 +263,9 @@ export async function getTherapyPackages() {
       include: {
         student: true,
         program: true,
+        _count: {
+          select: { attendances: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -284,6 +291,23 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
     if (!scheduleTime) throw new Error('Jadwal sesi wajib dipilih.');
 
     return await prisma.$transaction(async (tx) => {
+      const unfinishedPackages = await tx.therapyPackage.findMany({
+        where: {
+          studentId,
+          status: { in: ['ACTIVE', 'WARNING'] },
+        },
+        select: {
+          id: true,
+          totalSessions: true,
+          usedSessions: true,
+          program: { select: { name: true } },
+        },
+      });
+      const activeUnfinishedPackage = unfinishedPackages.find((pkg: any) => pkg.usedSessions < pkg.totalSessions);
+      if (activeUnfinishedPackage) {
+        throw new Error('Paket siswa ini belum selesai. Habiskan atau hapus paket baru yang salah terlebih dahulu sebelum menambah paket baru.');
+      }
+
       const program = await getOrCreateProgram(tx, programName);
 
       await tx.studentProgram.upsert({
@@ -298,12 +322,6 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
           studentId,
           programId: program.id,
         },
-      });
-
-      // Selesaikan paket aktif lama untuk program yang sama jika ada
-      await tx.therapyPackage.updateMany({
-        where: { studentId, programId: program.id, status: { in: ['ACTIVE', 'WARNING'] } },
-        data: { status: 'COMPLETED' }
       });
 
       const newPackage = await tx.therapyPackage.create({
@@ -326,6 +344,41 @@ export async function addTherapyPackage(studentId: string, formData: FormData) {
     });
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+export async function deleteTherapyPackage(packageId: string) {
+  try {
+    if (!packageId) throw new Error('Paket tidak ditemukan.');
+
+    await prisma.$transaction(async (tx) => {
+      const therapyPackage = await tx.therapyPackage.findUnique({
+        where: { id: packageId },
+        include: {
+          _count: {
+            select: { attendances: true },
+          },
+        },
+      });
+
+      if (!therapyPackage) throw new Error('Paket tidak ditemukan.');
+      if (therapyPackage.usedSessions > 0 || therapyPackage._count.attendances > 0) {
+        throw new Error('Paket sudah memiliki riwayat scan, sehingga tidak bisa dihapus. Hapus riwayat scan terlebih dahulu jika perlu koreksi.');
+      }
+
+      await tx.therapyPackage.delete({
+        where: { id: packageId },
+      });
+    });
+
+    revalidatePath('/students');
+    revalidatePath('/students/school');
+    revalidatePath('/');
+    revalidatePath('/sessions');
+    revalidatePath('/reports');
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: getActionErrorMessage(error) };
   }
 }
 

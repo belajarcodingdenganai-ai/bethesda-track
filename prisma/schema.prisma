@@ -21,6 +21,11 @@ enum StudentStatus {
   COMPLETED
 }
 
+enum StudentTrack {
+  THERAPY
+  SCHOOL
+}
+
 enum PackageStatus {
   ACTIVE
   WARNING
@@ -51,127 +56,107 @@ enum NotificationType {
 
 // User & Authentication
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  role          UserRole
-  profileImage  String?
-  
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole
+  profileImage String?
+
   // Relations
-  teacher       Teacher?
-  parent        Parent?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  teacher Teacher?
+  parent  Parent?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
 }
 
 // Admin/Teacher Model
 model Teacher {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  teacherId     String    @unique
-  division      String
-  position      String
-  phone         String?
-  
-  qrCode        String    @unique
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  teacherId String  @unique
+  division  String
+  position  String
+  phone     String?
+
+  qrCode String @unique
+
   // Attendance tracking
-  checkInTime   DateTime?
-  checkOutTime  DateTime?
-  totalHours    Float     @default(0)
-  overtime      Float     @default(0)
-  
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  totalHours   Float     @default(0)
+  overtime     Float     @default(0)
+
   // Relations
-  attendances   Attendance[]
-  attendanceLogs TeacherAttendance[]
-  notifications Notification[]
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  attendances        Attendance[]
+  teacherAttendances TeacherAttendance[]
+  notifications      Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([teacherId])
 }
 
-model TeacherAttendance {
-  id              String    @id @default(cuid())
-
-  teacherId       String
-  teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-
-  attendanceDate  DateTime
-  scheduledStart  DateTime
-  checkIn         DateTime
-  isLate          Boolean   @default(false)
-  minutesLate     Int       @default(0)
-  notes           String?
-
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@unique([teacherId, attendanceDate])
-  @@index([teacherId])
-  @@index([attendanceDate])
-  @@index([isLate])
-}
-
 // Parent Model
 model Parent {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  phone         String?
-  children      Student[]
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone    String?
+  children Student[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
 
 // Student Model (Complete)
 model Student {
-  id            String          @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Identity
-  registrationNo String         @unique
-  name          String
-  nickname      String?
-  gender        String?
-  dateOfBirth   DateTime?
-  age           Int?
-  
+  registrationNo String    @unique
+  name           String
+  nickname       String?
+  gender         String?
+  dateOfBirth    DateTime?
+  age            Int?
+
   // Contact
-  address       String?
-  parentPhone   String?
-  parentEmail   String?
-  school        String?
-  
+  address           String?
+  parentPhone       String?
+  parentEmail       String?
+  school            String?
+  schoolTeacherName String?
+
   // Medical/Educational
-  diagnosis     String?
-  profileImage  String?
-  
+  diagnosis    String?
+  profileImage String?
+
   // System Fields
-  qrCode        String          @unique
-  status        StudentStatus   @default(ACTIVE)
-  
+  qrCode       String        @unique
+  status       StudentStatus @default(ACTIVE)
+  studentTrack StudentTrack  @default(THERAPY)
+
   // Relations
-  parentId      String?
-  parent        Parent?         @relation(fields: [parentId], references: [id])
-  
+  parentId String?
+  parent   Parent? @relation(fields: [parentId], references: [id])
+
   programs      StudentProgram[]
   packages      TherapyPackage[]
   attendances   Attendance[]
   notifications Notification[]
-  
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([registrationNo])
   @@index([parentId])
@@ -180,35 +165,35 @@ model Student {
 
 // Program Model
 model Program {
-  id            String        @id @default(cuid())
-  name          ProgramType
-  description   String?
-  
+  id          String      @id @default(cuid())
+  name        ProgramType
+  description String?
+
   studentPrograms StudentProgram[]
-  packages      TherapyPackage[]
-  attendances   Attendance[]
-  
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  packages        TherapyPackage[]
+  attendances     Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([name])
 }
 
 // Student-Program Junction
 model StudentProgram {
-  id            String    @id @default(cuid())
-  
-  studentId     String
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  programId     String
-  program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  
-  startDate     DateTime  @default(now())
-  endDate       DateTime?
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id String @id @default(cuid())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  programId String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([studentId, programId])
   @@index([studentId])
@@ -217,34 +202,34 @@ model StudentProgram {
 
 // Therapy Package Model
 model TherapyPackage {
-  id              String        @id @default(cuid())
-  
-  studentId       String
-  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  programId       String
-  program         Program       @relation(fields: [programId], references: [id])
-  
+  id String @id @default(cuid())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
   // Package details
-  frequency       Int           // 2 = 2x per week, 3 = 3x per week
-  totalSessions   Int
-  usedSessions    Int           @default(0)
-  therapistName   String?
-  scheduleTime    String?
-  
+  frequency     Int // 2 = 2x per week, 3 = 3x per week
+  totalSessions Int
+  usedSessions  Int     @default(0)
+  therapistName String?
+  scheduleTime  String?
+
   // Status tracking
-  status          PackageStatus @default(ACTIVE)
-  startDate       DateTime      @default(now())
-  endDate         DateTime?
-  
+  status    PackageStatus @default(ACTIVE)
+  startDate DateTime      @default(now())
+  endDate   DateTime?
+
   // Alert thresholds
-  warningThreshold Int          @default(1)
-  
+  warningThreshold Int @default(1)
+
   // Relations
-  attendances     Attendance[]
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([programId])
@@ -253,37 +238,37 @@ model TherapyPackage {
 
 // Attendance Record
 model Attendance {
-  id            String          @id @default(cuid())
-  
-  studentId     String
-  student       Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  teacherId     String
-  teacher       Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  programId     String
-  program       Program         @relation(fields: [programId], references: [id])
-  
+  id String @id @default(cuid())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  programId String
+  program   Program @relation(fields: [programId], references: [id])
+
   // Time tracking
-  checkIn       DateTime        @default(now())
-  checkOut      DateTime?
-  duration      Float?          // in minutes
-  
+  checkIn  DateTime  @default(now())
+  checkOut DateTime?
+  duration Float? // in minutes
+
   // Location
-  room          String?
-  
+  room String?
+
   // Status
-  status        AttendanceStatus @default(PRESENT)
-  
+  status AttendanceStatus @default(PRESENT)
+
   // Package tracking
-  packageId     String
-  package       TherapyPackage  @relation(fields: [packageId], references: [id])
-  
+  packageId String
+  package   TherapyPackage @relation(fields: [packageId], references: [id])
+
   // QR scan reference
   qrCodeScanned String?
-  
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([teacherId])
@@ -291,33 +276,56 @@ model Attendance {
   @@index([status])
 }
 
+// Teacher Attendance Record
+model TeacherAttendance {
+  id String @id @default(cuid())
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  attendanceDate DateTime
+  scheduledStart DateTime
+  checkIn        DateTime
+  isLate         Boolean  @default(false)
+  minutesLate    Int      @default(0)
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([attendanceDate])
+  @@index([checkIn])
+  @@index([isLate])
+}
+
 // Notification Model
 model Notification {
-  id            String          @id @default(cuid())
-  
-  type          NotificationType
-  title         String
-  message       String
-  
-  studentId     String?
-  student       Student?        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  teacherId     String?
-  teacher       Teacher?        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  packageId     String?
-  
+  id String @id @default(cuid())
+
+  type    NotificationType
+  title   String
+  message String
+
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  packageId String?
+
   // Delivery
-  isRead        Boolean         @default(false)
-  readAt        DateTime?
-  
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
   // WhatsApp tracking
-  whatsappSent  Boolean         @default(false)
+  whatsappSent   Boolean   @default(false)
   whatsappSentAt DateTime?
-  whatsappId    String?
-  
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  whatsappId     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([teacherId])
@@ -327,15 +335,15 @@ model Notification {
 
 // Analytics/Reporting Model
 model DailyReport {
-  id            String    @id @default(cuid())
-  
-  date          DateTime  @unique
-  
-  totalStudents Int       @default(0)
-  totalAttendance Int      @default(0)
-  totalTeachers Int       @default(0)
-  totalSessions Int       @default(0)
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id String @id @default(cuid())
+
+  date DateTime @unique
+
+  totalStudents   Int @default(0)
+  totalAttendance Int @default(0)
+  totalTeachers   Int @default(0)
+  totalSessions   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

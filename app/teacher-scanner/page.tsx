@@ -5,18 +5,15 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { toast } from 'sonner';
 import {
   AlertCircle,
-  ArrowLeft,
   Camera,
   CheckCircle2,
   Clock,
-  ImageUp,
   QrCode,
   RefreshCcw,
   ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import Link from 'next/link';
 
 type TeacherScanResult = {
   success: true;
@@ -32,6 +29,8 @@ type FailedTeacherScanResult = {
   success: false;
   error: string;
 };
+
+const SCAN_API_URL = 'https://rumahbethesda.com/api/scan';
 
 export default function TeacherScannerPage() {
   const [scanResult, setScanResult] = useState<TeacherScanResult | null>(null);
@@ -59,7 +58,7 @@ export default function TeacherScannerPage() {
         // Browser may block audio until user interaction.
       }
 
-      const response = await fetch('/api/scan', {
+      const response = await fetch(SCAN_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
@@ -68,7 +67,12 @@ export default function TeacherScannerPage() {
           mode: 'teacher',
         }),
       });
-      const result = await response.json();
+      const responseText = await response.text();
+      if (!responseText) {
+        throw new Error('Server tidak mengirim jawaban. Pastikan aplikasi Scan Guru sudah versi terbaru.');
+      }
+
+      const result = JSON.parse(responseText);
       if (!result.success) {
         const failedResult = result as FailedTeacherScanResult;
         setErrorResult(failedResult.error || 'QR guru tidak valid');
@@ -149,56 +153,16 @@ export default function TeacherScannerPage() {
     };
   }, [errorResult, onScanFailure, processTeacherQr, scanResult]);
 
-  const handlePhotoScan = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || processingRef.current || scanResult || errorResult) return;
-
-    setIsProcessing(true);
-    processingRef.current = true;
-
-    try {
-      const fileScanner = new Html5Qrcode('teacher-file-reader');
-      const decodedText = await fileScanner.scanFile(file, true);
-      await fileScanner.clear();
-      processingRef.current = false;
-      setIsProcessing(false);
-      await processTeacherQr(decodedText);
-    } catch (error: any) {
-      processingRef.current = false;
-      setIsProcessing(false);
-      setErrorResult(error?.message || 'Foto tidak berisi QR guru yang bisa dibaca.');
-    }
-  };
-
-  const resetScanner = () => {
-    setScanResult(null);
-    setErrorResult(null);
-    setIsCameraStarting(true);
-  };
-
   return (
     <div className="min-h-screen bg-zinc-50 px-4 py-6 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
-      <div id="teacher-file-reader" className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden" />
-
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-xl flex-col justify-center space-y-6">
-        <div className="flex">
-          <Link
-            href="/teachers"
-            className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-700 shadow-sm transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <ArrowLeft size={16} />
-            Kembali
-          </Link>
-        </div>
-
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-sky-100 shadow-lg shadow-indigo-500/20 ring-1 ring-sky-200">
             <Image src="/brand/rumah-bethesda-logo.png" alt="Rumah Bethesda" width={80} height={80} className="h-full w-full object-cover" priority />
           </div>
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">BethScan</h1>
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Scan Guru</h1>
           <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-            Scan QR guru untuk mencatat jam kedatangan hari ini.
+            Arahkan kamera ke QR guru untuk mencatat jam kedatangan.
           </p>
         </div>
 
@@ -217,21 +181,9 @@ export default function TeacherScannerPage() {
                 </span>
               </div>
 
-              <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-700 transition-all hover:bg-indigo-100 dark:border-indigo-900/40 dark:bg-indigo-950/20 dark:text-indigo-300">
-                <ImageUp size={16} />
-                Scan dari Foto QR
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoScan}
-                  className="hidden"
-                />
-              </label>
-
               <div className="flex items-center justify-center gap-2 text-xs font-medium text-zinc-400">
                 <Camera size={14} />
-                Kamera hanya menerima QR guru untuk absensi kedatangan.
+                Hanya QR guru yang dapat diproses.
               </div>
             </div>
           </div>
@@ -245,12 +197,9 @@ export default function TeacherScannerPage() {
                 <h2 className="text-sm font-black text-amber-600 uppercase tracking-[0.3em]">Perhatian</h2>
                 <p className="text-xl font-bold text-zinc-900 dark:text-zinc-100 px-4">{errorResult}</p>
               </div>
-              <button
-                onClick={resetScanner}
-                className="w-full py-4 rounded-[20px] bg-zinc-900 text-white font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-zinc-800 active:scale-95 transition-all"
-              >
-                Scan Guru Lagi
-              </button>
+              <div className="w-full rounded-[20px] bg-zinc-100 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                Scanner dihentikan
+              </div>
             </div>
           </div>
         ) : (
@@ -261,7 +210,7 @@ export default function TeacherScannerPage() {
               </div>
 
               <div className="space-y-1">
-                <h2 className="text-sm font-black text-emerald-600 uppercase tracking-[0.3em]">Kedatangan Tercatat</h2>
+                <h2 className="text-sm font-black text-emerald-600 uppercase tracking-[0.3em]">Scan Berhasil</h2>
                 <p className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">{scanResult?.name}</p>
               </div>
 
@@ -289,12 +238,9 @@ export default function TeacherScannerPage() {
                 <p className="font-bold text-xs">{scanResult?.notes || 'Tepat waktu.'}</p>
               </div>
 
-              <button
-                onClick={resetScanner}
-                className="w-full py-4 rounded-[20px] bg-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-indigo-500/40 hover:bg-indigo-700 active:scale-95 transition-all"
-              >
-                Scan Guru Berikutnya
-              </button>
+              <div className="w-full rounded-[20px] bg-emerald-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                Absensi hari ini sudah tercatat
+              </div>
             </div>
           </div>
         )}

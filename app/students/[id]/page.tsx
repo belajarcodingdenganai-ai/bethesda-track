@@ -42,7 +42,7 @@ export default function StudentDetailPage() {
 
     const interval = setInterval(() => {
       fetchStudent(parentPortal, true);
-    }, 30000);
+    }, 300000);
 
     const handleFocus = () => {
       fetchStudent(parentPortal, true);

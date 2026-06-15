@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/teacher-scanner',
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/scan',
   '/api/sync',
 ];
 
@@ -47,38 +48,22 @@ function isPublicGetRoute(request: NextRequest) {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const parentPortalToken = request.cookies.get('bethesda_parent_portal')?.value;
 
-  // Handle parent portal routing
-  if (!parentPortalToken || isPublicParentPortalPath(pathname)) {
-    // Check admin authentication for protected routes
-    if (!isPublicParentPortalPath(pathname) && !isPublicRoute(pathname) && !isPublicGetRoute(request)) {
-      const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
-      const isAuthenticated = verifyAdminSessionToken(sessionToken);
+  // Check admin authentication for protected routes
+  if (!isPublicParentPortalPath(pathname) && !isPublicRoute(pathname) && !isPublicGetRoute(request)) {
+    const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    const isAuthenticated = verifyAdminSessionToken(sessionToken);
 
-      if (!isAuthenticated) {
-        // Redirect ke login dengan next parameter
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = '/login';
-        loginUrl.searchParams.set('next', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
+    if (!isAuthenticated) {
+      // Redirect ke login dengan next parameter
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = '/login';
+      loginUrl.searchParams.set('next', pathname);
+      return NextResponse.redirect(loginUrl);
     }
-
-    return NextResponse.next();
   }
 
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    return NextResponse.json(
-      { error: 'Sesi parent hanya bisa mengakses Parent Portal.' },
-      { status: 403 },
-    );
-  }
-
-  const portalUrl = request.nextUrl.clone();
-  portalUrl.pathname = `/parent-portal/${parentPortalToken}`;
-  portalUrl.search = '';
-  return NextResponse.redirect(portalUrl);
+  return NextResponse.next();
 }
 
 export const config = {

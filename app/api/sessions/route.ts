@@ -1,45 +1,103 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getProjectFlowProgramChecklistWithSummary, getProjectFlowStudentAssignment } from "@/lib/projectflow";
+import { jsonCacheResponse } from "@/lib/api-cache";
 
 export const dynamic = "force-dynamic";
 
+const cacheHeaders = {
+  "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+};
+
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const rawAttendanceLimit = Number(searchParams.get("attendanceLimit") || 5);
+    const attendanceLimit = Number.isFinite(rawAttendanceLimit)
+      ? Math.min(Math.max(rawAttendanceLimit, 0), 20)
+      : 5;
+
     // Build filter object
     const where: any = {
       status: "ACTIVE",
+      studentTrack: "THERAPY",
     };
 
     // Get all students with their programs, packages and latest attendances
     const students = await prisma.student.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        registrationNo: true,
+        diagnosis: true,
+        profileImage: true,
         programs: {
-          include: {
-            program: true,
+          select: {
+            program: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
         packages: {
-          include: {
-            program: true,
+          select: {
+            id: true,
+            totalSessions: true,
+            usedSessions: true,
+            status: true,
+            therapistName: true,
+            scheduleTime: true,
+            frequency: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: {
+              select: { attendances: true },
+            },
+            program: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+          where: {
+            status: { in: ["ACTIVE", "WARNING", "COMPLETED"] },
           },
           orderBy: {
             createdAt: "desc",
           },
+          take: 3,
         },
         attendances: {
-          include: {
+          select: {
+            id: true,
+            checkIn: true,
+            checkOut: true,
+            duration: true,
+            status: true,
+            room: true,
             teacher: {
-              include: {
-                user: true,
+              select: {
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
-            program: true,
+            program: {
+              select: {
+                name: true,
+              },
+            },
           },
           orderBy: {
             checkIn: "desc",
           },
-          take: 100,
+          take: attendanceLimit,
         },
       },
       orderBy: {
@@ -48,11 +106,13 @@ export async function GET(request: Request) {
     });
 
     // Transform data
-    const transformedStudents = students.map((student) => {
+    const transformedStudents = await Promise.all(students.map(async (student) => {
       // Get active package
       const activePackage = student.packages.find(
         (pkg) => pkg.status === "ACTIVE" || pkg.status === "WARNING"
       );
+      const projectFlowAssignment = await getProjectFlowStudentAssignment(student.name, "THERAPY");
+      const projectFlowChecklist = await getProjectFlowProgramChecklistWithSummary(student.name, "THERAPY");
 
       // Calculate remaining sessions
       const totalSessions = activePackage?.totalSessions || 0;
@@ -61,7 +121,7 @@ export async function GET(request: Request) {
 
       // Get therapist name from latest attendance
       const latestAttendance = student.attendances[0];
-      const therapistName = activePackage?.therapistName || latestAttendance?.teacher?.user?.name || "Belum ada terapis";
+      const therapistName = projectFlowAssignment?.teacherNames?.join(", ") || activePackage?.therapistName || latestAttendance?.teacher?.user?.name || "Belum ada terapis";
 
       // Get primary program
       const primaryProgram = activePackage?.program?.name || student.programs[0]?.program?.name || "Belum ada program";
@@ -103,18 +163,19 @@ export async function GET(request: Request) {
         lastAttended: latestAttendance?.checkIn
           ? new Date(latestAttendance.checkIn).toISOString().split("T")[0]
           : null,
-        package: activePackage,
+        package: activePackage
+          ? {
+              ...activePackage,
+              therapistName: projectFlowAssignment?.primaryTeacherName || activePackage.therapistName,
+              projectFlowAssignment,
+            }
+          : activePackage,
         attendances: student.attendances,
+        projectFlowChecklist,
       };
-    });
+    }));
 
-    return NextResponse.json(transformedStudents, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        Pragma: "no-cache",
-        Expires: "0",
-      },
-    });
+    return jsonCacheResponse(request, transformedStudents, cacheHeaders);
   } catch (error) {
     console.error("Error fetching sessions:", error);
     return NextResponse.json(

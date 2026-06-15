@@ -24,15 +24,6 @@ function getJakartaDateRange(startDate: string | null, endDate: string | null) {
   return where;
 }
 
-function isJakartaWeekday(value: Date) {
-  const dayName = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Jakarta',
-    weekday: 'short',
-  }).format(value);
-
-  return !['Sat', 'Sun'].includes(dayName);
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -68,11 +59,9 @@ export async function GET(request: NextRequest) {
       orderBy: { checkIn: 'desc' },
     });
 
-    const weekdayAttendance = attendance.filter((item) => isJakartaWeekday(item.checkIn));
-
     return NextResponse.json(
       {
-        data: weekdayAttendance.map((item) => ({
+        data: attendance.map((item) => ({
           id: item.id,
           teacherDbId: item.teacherId,
           teacherId: item.teacher.teacherId,
@@ -87,7 +76,7 @@ export async function GET(request: NextRequest) {
           minutesLate: item.minutesLate,
           notes: item.notes,
         })),
-        total: weekdayAttendance.length,
+        total: attendance.length,
       },
       { headers: noStoreHeaders },
     );

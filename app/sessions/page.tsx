@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { addTherapyPackage } from "@/app/actions/member";
+import { addTherapyPackage, deleteTherapyPackage } from "@/app/actions/member";
 import { createManualMissingScan, deleteAttendanceRecord, updateAttendanceRecord } from "@/app/actions/attendance";
 import { downloadBlobFile, downloadTextFile } from "@/lib/download-utils";
 import { THERAPIST_NAMES, THERAPY_SCHEDULES } from "@/lib/therapy-options";
@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Calendar,
   User,
+  Trash2,
 } from "lucide-react";
 
 interface Student {
@@ -315,6 +316,7 @@ const SessionsTable = ({
   const [manualCheckIn, setManualCheckIn] = useState(getDateTimeLocalValue);
   const [manualTherapistName, setManualTherapistName] = useState("");
   const [savingManual, setSavingManual] = useState(false);
+  const [deletingPackageId, setDeletingPackageId] = useState<string | null>(null);
 
   const filteredStudents = filterStudents(students, searchQuery, filters);
 
@@ -397,6 +399,36 @@ const SessionsTable = ({
     }
   };
 
+  const handleDeletePackage = async (student: Student) => {
+    const activePackage = student.package;
+    if (!activePackage?.id) {
+      toast.error("Siswa belum memiliki paket sesi");
+      return;
+    }
+
+    if (student.progress.used > 0 || activePackage._count?.attendances > 0) {
+      toast.error("Paket ini sudah memiliki riwayat scan, jadi tidak bisa dihapus langsung.");
+      return;
+    }
+
+    if (!window.confirm(`Hapus paket sesi ${student.name}? Paket yang sudah dihapus tidak bisa dikembalikan.`)) return;
+
+    setDeletingPackageId(activePackage.id);
+    try {
+      const result = await deleteTherapyPackage(activePackage.id);
+      if (result.success === false) {
+        toast.error(result.error || "Gagal menghapus paket sesi");
+        return;
+      }
+
+      toast.success("Paket sesi berhasil dihapus");
+      if (selectedStudent?.id === student.id) setSelectedStudent(null);
+      await onRefresh();
+    } finally {
+      setDeletingPackageId(null);
+    }
+  };
+
   return (
     <>
       <div className="mobile-scroll-x rounded-3xl border border-zinc-200/50 dark:border-zinc-800/50 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm shadow-sm">
@@ -418,6 +450,11 @@ const SessionsTable = ({
               const statusStyle = getStatusBadge(student.status);
               const progressPct = getProgressPercentage(student.progress.used, student.progress.total);
               const sessionsLeft = student.progress.total - student.progress.used;
+              const canDeletePackage = Boolean(
+                student.package?.id &&
+                  student.progress.used === 0 &&
+                  (student.package._count?.attendances || 0) === 0,
+              );
 
               return (
                 <tr
@@ -485,6 +522,15 @@ const SessionsTable = ({
                     >
                       <ExternalLink size={14} /> Riwayat
                     </button>
+                    {canDeletePackage && (
+                      <button
+                        onClick={() => handleDeletePackage(student)}
+                        disabled={deletingPackageId === student.package?.id}
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:text-zinc-300 disabled:no-underline font-medium text-sm hover:underline transition-colors flex items-center gap-1"
+                      >
+                        <Trash2 size={14} /> {deletingPackageId === student.package?.id ? "..." : "Hapus"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
@@ -1061,7 +1107,7 @@ export default function SessionsPage() {
     const interval = setInterval(() => {
       fetchStudents(true);
       fetchTherapists(true);
-    }, 30000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, []);
@@ -1412,11 +1458,16 @@ export default function SessionsPage() {
                   className="w-full px-4 py-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Pilih siswa...</option>
-                  {students.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.name} ({student.registrationNo})
-                    </option>
-                  ))}
+                  {students.map((student) => {
+                    const hasUnfinishedPackage = Boolean(
+                      student.package?.id && student.progress.used < student.progress.total,
+                    );
+                    return (
+                      <option key={student.id} value={student.id} disabled={hasUnfinishedPackage}>
+                        {student.name} ({student.registrationNo}){hasUnfinishedPackage ? " - paket belum selesai" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

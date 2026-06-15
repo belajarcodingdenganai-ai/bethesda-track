@@ -20,7 +20,7 @@ export function BottomNav() {
           href="/students"
           icon={<GraduationCap size={20} />}
           label="Siswa"
-          active={pathname === "/students"}
+          active={pathname === "/students" || pathname.startsWith("/students/")}
         />
         <BottomNavItem
           href="/scanner"

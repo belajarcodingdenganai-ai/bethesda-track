@@ -38,6 +38,15 @@ export function createParentPortalToken(studentId: string) {
   return `${payload}.${signature}`;
 }
 
+export function createParentPortalSlug(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'anak';
+}
+
 export function verifyParentPortalToken(token: string) {
   const [payload, signature] = token.split('.');
   if (!payload || !signature) return null;
