@@ -375,7 +375,6 @@ export async function deleteTherapyPackage(packageId: string) {
     revalidatePath('/students/school');
     revalidatePath('/');
     revalidatePath('/sessions');
-    revalidatePath('/reports');
     return { success: true };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };
@@ -457,7 +456,6 @@ export async function createTeacher(formData: FormData) {
       revalidatePath('/teachers');
       revalidatePath('/');
       revalidatePath('/teacher-scanner');
-      revalidatePath('/reports');
       return { success: true, data: teacher };
     });
   } catch (error: any) {
@@ -511,7 +509,6 @@ export async function syncDefaultTherapists() {
     revalidatePath('/teachers');
     revalidatePath('/');
     revalidatePath('/teacher-scanner');
-    revalidatePath('/reports');
     return { success: true, data: teachers };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };
@@ -558,7 +555,6 @@ export async function updateTeacher(id: string, formData: FormData) {
       revalidatePath('/teachers');
       revalidatePath('/');
       revalidatePath('/teacher-scanner');
-      revalidatePath('/reports');
       return { success: true, data: teacher };
     });
   } catch (error: any) {
@@ -584,7 +580,6 @@ export async function deleteTeacher(id: string) {
     revalidatePath('/teachers');
     revalidatePath('/');
     revalidatePath('/teacher-scanner');
-    revalidatePath('/reports');
     return { success: true };
   } catch (error: any) {
     return { success: false, error: getActionErrorMessage(error) };

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Users, QrCode, Settings, CreditCard, BarChart3, LogOut, ChevronUp, ScanFace, Contact2, MapPin, GraduationCap, Presentation, Banknote, CalendarDays, Bell } from "lucide-react";
+import { LayoutDashboard, Settings, CreditCard, ChevronUp, QrCode, GraduationCap, Presentation, Banknote, CalendarDays, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -56,12 +56,6 @@ export function Sidebar() {
               icon={<CreditCard size={18} />} 
               label="Sesi Terapi" 
               active={pathname === "/sessions"}
-            />
-            <NavItem 
-              href="/reports" 
-              icon={<BarChart3 size={18} />} 
-              label="Laporan & Insight" 
-              active={pathname === "/reports"}
             />
             <NavItem 
               href="/revenue" 

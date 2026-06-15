@@ -448,7 +448,6 @@ export async function createManualMissingScan(packageId: string, checkInValue: s
 
     revalidatePath('/');
     revalidatePath('/sessions');
-    revalidatePath('/reports');
 
     return { success: true };
   } catch (error) {
@@ -476,7 +475,6 @@ export async function updateAttendanceRecord(attendanceId: string, checkInValue:
     });
 
     revalidatePath('/sessions');
-    revalidatePath('/reports');
 
     return { success: true };
   } catch (error) {
@@ -496,7 +494,6 @@ export async function deleteAttendanceRecord(attendanceId: string) {
 
     revalidatePath('/');
     revalidatePath('/sessions');
-    revalidatePath('/reports');
 
     return { success: true };
   } catch (error) {

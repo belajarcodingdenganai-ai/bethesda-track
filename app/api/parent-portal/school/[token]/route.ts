@@ -82,7 +82,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         registrationNo: true,
         name: true,
         nickname: true,
-        profileImage: true,
         schoolTeacherName: true,
         attendances: {
           take: 1,
@@ -94,7 +93,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 user: {
                   select: {
                     name: true,
-                    profileImage: true,
                   },
                 },
               },
@@ -130,7 +128,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         user: {
           select: {
             name: true,
-            profileImage: true,
           },
         },
       },
@@ -142,7 +139,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         registrationNo: student.registrationNo,
         name: student.name,
         nickname: student.nickname,
-        profileImage: student.profileImage,
+        profileImage: null,
         schoolTeacherName: teacherName,
         schoolSchedule: projectFlowAssignment?.scheduleTime || programChecklist?.projectFlowCard?.scheduleTime || '08:00-12:00',
         programChecklist: compactProgramChecklist(programChecklist),
@@ -150,19 +147,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           ? {
               id: teacher.id,
               name: teacher.user?.name || teacherName,
-              profileImage: projectFlowAssignee?.avatar || teacher.user?.profileImage,
+              profileImage: null,
             }
           : projectFlowAssignee
             ? {
                 id: projectFlowAssignee.id,
                 name: projectFlowAssignee.name,
-                profileImage: projectFlowAssignee.avatar,
+                profileImage: null,
               }
             : latestAttendanceTeacher
               ? {
                   id: latestAttendanceTeacher.id,
                   name: latestAttendanceTeacher.user?.name || teacherName,
-                  profileImage: latestAttendanceTeacher.user?.profileImage,
+                  profileImage: null,
                 }
             : {
                 id: null,

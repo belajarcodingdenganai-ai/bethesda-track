@@ -31,7 +31,6 @@ export async function GET(request: Request) {
         name: true,
         registrationNo: true,
         diagnosis: true,
-        profileImage: true,
         programs: {
           select: {
             program: {
@@ -151,7 +150,7 @@ export async function GET(request: Request) {
         name: student.name,
         registrationNo: student.registrationNo,
         diagnosis: student.diagnosis,
-        profileImage: student.profileImage,
+        profileImage: null,
         program: primaryProgram,
         schedule: schedule,
         therapist: therapistName,

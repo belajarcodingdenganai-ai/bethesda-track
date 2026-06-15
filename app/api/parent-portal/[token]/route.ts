@@ -80,7 +80,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: true,
         nickname: true,
         age: true,
-        profileImage: true,
         packages: {
           orderBy: { createdAt: 'desc' },
           select: {
@@ -111,7 +110,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 user: {
                   select: {
                     name: true,
-                    profileImage: true,
                   },
                 },
               },
@@ -157,7 +155,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             user: {
               select: {
                 name: true,
-                profileImage: true,
               },
             },
           },
@@ -171,7 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: student.name,
         nickname: student.nickname,
         age: student.age,
-        profileImage: student.profileImage,
+        profileImage: null,
         packages: activePackage
           ? [
               {
@@ -202,13 +199,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           ? {
               id: therapist.id,
               name: therapist.user?.name || therapistName,
-              profileImage: projectFlowAssignee?.avatar || therapist.user?.profileImage,
+              profileImage: null,
             }
           : projectFlowAssignee
             ? {
                 id: projectFlowAssignee.id,
                 name: projectFlowAssignee.name,
-                profileImage: projectFlowAssignee.avatar,
+                profileImage: null,
               }
             : null,
       },
