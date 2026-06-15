@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin-auth';
 
 const PUBLIC_PREFIXES = [
-  '/parent-portal/',
-  '/api/parent-portal/',
   '/_next/',
   '/brand/',
   '/icons/',
@@ -26,6 +24,10 @@ const PUBLIC_GET_ROUTES = [
 
 function isPublicParentPortalPath(pathname: string) {
   return (
+    pathname === '/parent-portal' ||
+    pathname.startsWith('/parent-portal/') ||
+    pathname === '/api/parent-portal' ||
+    pathname.startsWith('/api/parent-portal/') ||
     PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
     pathname === '/manifest.webmanifest' ||
     pathname === '/favicon.ico'
