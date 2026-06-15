@@ -15,7 +15,7 @@ const noStoreHeaders = {
 };
 
 const parentPortalCacheHeaders = {
-  'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400',
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
 };
 
 async function resolveParentPortalStudentId(tokenOrSlug: string) {

@@ -95,8 +95,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const track = searchParams.get('track') || 'THERAPY';
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 100;
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
 
     const where: any = {};
     if (track !== 'ALL') {
@@ -119,7 +121,6 @@ export async function GET(request: NextRequest) {
           dateOfBirth: true,
           address: true,
           diagnosis: true,
-          profileImage: true,
           status: true,
           studentTrack: true,
           parentPhone: true,

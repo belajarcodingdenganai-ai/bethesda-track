@@ -29,6 +29,10 @@ export async function GET(request: Request) {
     const attendanceLimit = Number.isFinite(rawAttendanceLimit)
       ? Math.min(Math.max(rawAttendanceLimit, 0), 20)
       : 5;
+    const rawStudentLimit = Number(searchParams.get("limit") || 100);
+    const studentLimit = Number.isFinite(rawStudentLimit)
+      ? Math.min(Math.max(rawStudentLimit, 1), 200)
+      : 100;
 
     // Build filter object
     const where: any = {
@@ -115,6 +119,7 @@ export async function GET(request: Request) {
       orderBy: {
         name: "asc",
       },
+      take: studentLimit,
     });
 
     // Transform data

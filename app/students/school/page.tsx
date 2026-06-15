@@ -91,7 +91,7 @@ export default function SchoolStudentsPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/students/school", { cache: "no-store" });
+      const response = await fetch("/api/students/school");
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gagal memuat siswa sekolah");
       setStudents(data.data || []);
@@ -104,7 +104,7 @@ export default function SchoolStudentsPage() {
 
   const fetchTeachers = async () => {
     try {
-      const response = await fetch("/api/teachers", { cache: "no-store" });
+      const response = await fetch("/api/teachers");
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gagal memuat data guru");
 

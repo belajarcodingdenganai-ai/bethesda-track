@@ -40,7 +40,7 @@ export default function TherapyPackagesPage() {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('/api/students', { cache: 'no-store' });
+      const response = await fetch('/api/students');
       const data = await response.json();
       setStudentList(Array.isArray(data) ? data : (data.data || []));
     } catch (error) {
@@ -66,7 +66,7 @@ export default function TherapyPackagesPage() {
 
   const fetchTherapists = async () => {
     try {
-      const response = await fetch('/api/teachers', { cache: 'no-store' });
+      const response = await fetch('/api/teachers');
       if (!response.ok) throw new Error('Gagal memuat data guru');
       const data = await response.json();
       const names = normalizeTeacherNames(data);

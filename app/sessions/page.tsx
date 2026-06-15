@@ -326,7 +326,7 @@ const SessionsTable = ({
     setLoadingHistory(true);
     
     try {
-      const response = await fetch(`/api/sessions/${student.id}`, { cache: "no-store" });
+      const response = await fetch(`/api/sessions/${student.id}`);
       const data = await response.json();
       setSessionHistory(data);
     } catch (error) {
@@ -341,7 +341,7 @@ const SessionsTable = ({
     if (!selectedStudent) return;
     setLoadingHistory(true);
     try {
-      const response = await fetch(`/api/sessions/${selectedStudent.id}`, { cache: "no-store" });
+      const response = await fetch(`/api/sessions/${selectedStudent.id}`);
       const data = await response.json();
       setSessionHistory(Array.isArray(data) ? data : []);
       await onRefresh();
@@ -1076,7 +1076,7 @@ export default function SessionsPage() {
   const fetchStudents = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const response = await fetch("/api/sessions", { cache: "no-store" });
+      const response = await fetch("/api/sessions");
       const data = await response.json();
       setStudents(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -1089,7 +1089,7 @@ export default function SessionsPage() {
 
   const fetchTherapists = async (silent = false) => {
     try {
-      const response = await fetch("/api/teachers", { cache: "no-store" });
+      const response = await fetch("/api/teachers");
       if (!response.ok) throw new Error("Gagal memuat data guru");
       const data = await response.json();
       const names = normalizeTeacherNames(data);
